@@ -1,0 +1,1108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FitTracker ⚔️</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg-deep:#05050f;
+  --bg-card:#0d0d1a;
+  --bg-card2:#111128;
+  --border:#1e1e3a;
+  --border-bright:#2d2d5e;
+  --accent-purple:#7c3aed;
+  --accent-cyan:#06b6d4;
+  --accent-gold:#f59e0b;
+  --accent-red:#ef4444;
+  --accent-green:#10b981;
+  --text-primary:#e2e8f0;
+  --text-secondary:#94a3b8;
+  --text-dim:#475569;
+  --xp-bg:#1e1e3a;
+}
+body{background:var(--bg-deep);color:var(--text-primary);font-family:'Segoe UI',system-ui,-apple-system,sans-serif;min-height:100vh;overflow-x:hidden}
+
+/* ─── HEADER ─── */
+header{position:sticky;top:0;z-index:100;background:rgba(5,5,15,0.97);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);padding:0 1.5rem;display:flex;align-items:center;gap:1.5rem;height:56px}
+.logo{font-size:1.2rem;font-weight:900;background:linear-gradient(135deg,#a78bfa,#06b6d4);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;white-space:nowrap;letter-spacing:-0.5px}
+nav{display:flex;gap:0.2rem;flex:1}
+.tab-btn{background:none;border:none;color:var(--text-dim);padding:0.45rem 0.85rem;cursor:pointer;font-size:0.72rem;font-weight:700;border-radius:6px;transition:all .2s;letter-spacing:.8px;text-transform:uppercase;position:relative}
+.tab-btn:hover{color:var(--text-primary);background:var(--bg-card2)}
+.tab-btn.active{color:#a78bfa;background:rgba(124,58,237,.15)}
+.tab-btn.active::after{content:'';position:absolute;bottom:-1px;left:0;right:0;height:2px;background:linear-gradient(90deg,#7c3aed,#06b6d4);border-radius:2px 2px 0 0}
+
+/* ─── LAYOUT ─── */
+.app-layout{display:grid;grid-template-columns:1fr 290px;gap:1.25rem;max-width:1160px;margin:0 auto;padding:1.25rem}
+@media(max-width:900px){.app-layout{grid-template-columns:1fr}.sidebar{display:none}}
+.tab-content{display:none}
+.tab-content.active{display:block}
+
+/* ─── CARDS ─── */
+.card{background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:1.2rem;margin-bottom:1rem}
+.card-title{font-size:.65rem;font-weight:800;text-transform:uppercase;letter-spacing:1.8px;color:var(--text-dim);margin-bottom:1rem}
+
+/* ─── LEVEL CARD ─── */
+.level-card{background:linear-gradient(135deg,#0d0d1a 0%,#1a0a2e 50%,#0a101f 100%);border:1px solid #2d1a5e;position:relative;overflow:hidden}
+.level-card::before{content:'';position:absolute;top:-60%;right:-15%;width:220px;height:220px;background:radial-gradient(circle,rgba(124,58,237,.18),transparent 70%);pointer-events:none}
+.level-card::after{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,#7c3aed,#06b6d4,#a78bfa);background-size:200%;animation:shimmer 4s linear infinite}
+@keyframes shimmer{0%{background-position:0%}100%{background-position:200%}}
+.level-header{display:flex;align-items:center;gap:1rem;margin-bottom:1rem}
+.level-emoji{font-size:2.6rem;filter:drop-shadow(0 0 12px rgba(124,58,237,.7));transition:all .4s}
+.level-info{flex:1}
+.level-name{font-size:1.55rem;font-weight:900;background:linear-gradient(135deg,#c4b5fd,#7c3aed);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;line-height:1}
+.level-number{font-size:.7rem;color:var(--text-dim);margin-top:.25rem;font-weight:600;letter-spacing:1px;text-transform:uppercase}
+.streak-badge{display:flex;align-items:center;gap:.3rem;background:rgba(245,158,11,.13);border:1px solid rgba(245,158,11,.3);border-radius:20px;padding:.35rem .8rem;font-size:.9rem;font-weight:800;color:#f59e0b;white-space:nowrap}
+.xp-label{display:flex;justify-content:space-between;font-size:.68rem;color:var(--text-dim);margin-bottom:.4rem;font-weight:600;text-transform:uppercase;letter-spacing:.5px}
+.xp-bar-bg{height:9px;background:var(--xp-bg);border-radius:5px;overflow:hidden;position:relative}
+.xp-bar-fill{height:100%;background:linear-gradient(90deg,#7c3aed,#06b6d4);border-radius:5px;transition:width .9s cubic-bezier(.34,1.56,.64,1);position:relative;min-width:0}
+.xp-bar-fill::after{content:'';position:absolute;top:0;right:0;width:24px;height:100%;background:rgba(255,255,255,.25);filter:blur(5px)}
+
+/* ─── FORM ─── */
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:.75rem}
+.form-group{display:flex;flex-direction:column;gap:.35rem}
+.form-label{font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.9px;color:var(--text-secondary)}
+.form-input{background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:8px;padding:.6rem .75rem;color:var(--text-primary);font-size:.9rem;transition:all .2s;outline:none;width:100%}
+.form-input:focus{border-color:#7c3aed;background:rgba(124,58,237,.07);box-shadow:0 0 0 3px rgba(124,58,237,.15)}
+.form-input::placeholder{color:var(--text-dim)}
+.submit-btn{width:100%;padding:.75rem;background:linear-gradient(135deg,#7c3aed,#4f46e5);border:none;border-radius:8px;color:#fff;font-size:.9rem;font-weight:800;cursor:pointer;text-transform:uppercase;letter-spacing:1.2px;transition:all .2s;margin-top:.5rem;box-shadow:0 4px 20px rgba(124,58,237,.3)}
+.submit-btn:hover{transform:translateY(-2px);box-shadow:0 8px 28px rgba(124,58,237,.5)}
+.submit-btn:active{transform:translateY(0)}
+
+/* ─── BUTTONS ─── */
+.btn-sm{background:var(--bg-card2);border:1px solid var(--border);color:var(--text-secondary);padding:.32rem .7rem;border-radius:6px;cursor:pointer;font-size:.72rem;font-weight:700;transition:all .2s;text-transform:uppercase;letter-spacing:.4px}
+.btn-sm:hover{color:var(--text-primary);border-color:var(--border-bright)}
+.btn-danger{background:rgba(239,68,68,.1);border-color:rgba(239,68,68,.3);color:#ef4444}
+.btn-danger:hover{background:rgba(239,68,68,.2);border-color:#ef4444}
+.btn-success{background:rgba(16,185,129,.1);border-color:rgba(16,185,129,.3);color:#10b981}
+.btn-success:hover{background:rgba(16,185,129,.2);border-color:#10b981}
+.btn-accent{background:rgba(124,58,237,.15);border-color:rgba(124,58,237,.4);color:#a78bfa}
+.btn-accent:hover{background:rgba(124,58,237,.25);border-color:#7c3aed}
+
+/* ─── HISTORY TABLE ─── */
+.history-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;flex-wrap:wrap;gap:.5rem}
+table{width:100%;border-collapse:collapse;font-size:.83rem}
+thead th{text-align:left;padding:.55rem .7rem;font-size:.62rem;font-weight:800;text-transform:uppercase;letter-spacing:1.5px;color:var(--text-dim);border-bottom:1px solid var(--border)}
+tbody tr{transition:background .15s;cursor:default}
+tbody tr:hover{background:rgba(255,255,255,.025)}
+tbody td{padding:.6rem .7rem;border-bottom:1px solid rgba(255,255,255,.04);color:var(--text-secondary)}
+tbody td:first-child{color:var(--text-primary);font-weight:600}
+.row-actions{display:flex;gap:.3rem;opacity:0;transition:opacity .15s}
+tbody tr:hover .row-actions{opacity:1}
+.edit-panel{background:rgba(124,58,237,.07);border:1px solid rgba(124,58,237,.2);border-radius:8px;padding:1rem}
+
+/* ─── LEVELS GRID ─── */
+.levels-grid{display:grid;grid-template-columns:1fr 1fr;gap:.65rem}
+.level-item{background:var(--bg-card2);border:1px solid var(--border);border-radius:10px;padding:.9rem;display:flex;align-items:center;gap:.75rem;transition:all .2s}
+.level-item.is-current{border-color:rgba(124,58,237,.55);background:rgba(124,58,237,.1);box-shadow:0 0 18px rgba(124,58,237,.25)}
+.level-item.is-locked{opacity:.4}
+.level-item-name{font-weight:800;font-size:.88rem;color:var(--text-primary)}
+.level-item-range{font-size:.68rem;color:var(--text-dim);margin-top:.12rem}
+
+/* ─── SETTINGS ─── */
+.settings-section{margin-bottom:1.5rem}
+.settings-section-title{font-size:.62rem;font-weight:800;text-transform:uppercase;letter-spacing:2px;color:var(--text-dim);margin-bottom:.75rem;padding-bottom:.5rem;border-bottom:1px solid var(--border)}
+.toggle-row{display:flex;justify-content:space-between;align-items:center;padding:.55rem 0}
+.toggle-label{font-size:.875rem;color:var(--text-secondary)}
+.toggle{position:relative;width:44px;height:24px}
+.toggle input{opacity:0;width:0;height:0}
+.toggle-slider{position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;background:var(--border);border-radius:24px;transition:.3s}
+.toggle-slider::before{content:'';position:absolute;height:18px;width:18px;left:3px;bottom:3px;background:#fff;border-radius:50%;transition:.3s}
+.toggle input:checked+.toggle-slider{background:#7c3aed}
+.toggle input:checked+.toggle-slider::before{transform:translateX(20px)}
+.goals-grid{display:grid;grid-template-columns:1fr 1fr;gap:.75rem}
+.unit-badge{display:inline-flex;background:var(--bg-deep);border:1px solid var(--border);border-radius:6px;overflow:hidden}
+.unit-opt{padding:.25rem .65rem;font-size:.7rem;font-weight:700;cursor:pointer;transition:all .15s;color:var(--text-dim);border:none;background:none}
+.unit-opt.active{background:rgba(124,58,237,.2);color:#a78bfa}
+
+/* ─── SIDEBAR ─── */
+.char-card{background:linear-gradient(160deg,#0d0d1a 0%,#1a0a2e 100%);border:1px solid #2d1a5e;border-radius:12px;padding:1.25rem;text-align:center;margin-bottom:1rem;position:relative;overflow:hidden}
+.char-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,#7c3aed,#06b6d4,#7c3aed);background-size:200%;animation:shimmer 4s linear infinite}
+.char-emoji{font-size:3.6rem;display:block;margin-bottom:.5rem;filter:drop-shadow(0 0 16px rgba(124,58,237,.75))}
+.char-name{font-size:1.1rem;font-weight:900;color:#a78bfa}
+.char-level{font-size:.68rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;margin-top:.15rem}
+.char-stats{display:grid;grid-template-columns:1fr 1fr;gap:.5rem;margin-top:1rem}
+.char-stat{background:rgba(255,255,255,.04);border-radius:8px;padding:.6rem;text-align:center}
+.char-stat-val{font-size:1.05rem;font-weight:900;color:var(--text-primary)}
+.char-stat-label{font-size:.58rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:.5px;margin-top:.1rem}
+.all-time-grid{display:grid;grid-template-columns:1fr 1fr;gap:.5rem;margin-top:.5rem}
+.stat-box{background:var(--bg-card2);border:1px solid var(--border);border-radius:8px;padding:.7rem;text-align:center}
+.stat-box-val{font-size:1rem;font-weight:700;color:#06b6d4}
+.stat-box-label{font-size:.58rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:.4px;margin-top:.1rem}
+
+/* ─── LEADERBOARD ─── */
+.lb-entry{display:flex;align-items:center;gap:.75rem;padding:.8rem;background:var(--bg-card2);border:1px solid var(--border);border-radius:10px;margin-bottom:.5rem;transition:all .2s}
+.lb-entry.is-you{border-color:rgba(124,58,237,.45);background:rgba(124,58,237,.07)}
+.lb-entry.rank-1{border-color:rgba(245,158,11,.45)}
+.lb-entry.rank-2{border-color:rgba(148,163,184,.35)}
+.lb-entry.rank-3{border-color:rgba(180,83,9,.35)}
+.lb-rank{font-size:1.1rem;font-weight:900;min-width:1.75rem;text-align:center}
+.lb-rank.gold{color:#f59e0b}
+.lb-rank.silver{color:#94a3b8}
+.lb-rank.bronze{color:#b45309}
+.lb-rank.other{color:var(--text-dim);font-size:.85rem}
+.lb-emoji{font-size:1.5rem}
+.lb-info{flex:1;min-width:0}
+.lb-name{font-weight:800;font-size:.9rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lb-lv{font-size:.68rem;color:var(--text-dim)}
+.lb-xp{font-weight:800;color:#a78bfa;font-size:.9rem;white-space:nowrap}
+.lb-streak{font-size:.72rem;color:#f59e0b;white-space:nowrap}
+.friend-code-box{background:var(--bg-card2);border:1px solid var(--border);border-radius:8px;padding:.75rem;font-family:monospace;font-size:.68rem;color:#a78bfa;word-break:break-all;cursor:pointer;transition:all .2s;user-select:all;line-height:1.5}
+.friend-code-box:hover{border-color:#7c3aed;background:rgba(124,58,237,.1)}
+.share-tabs{display:flex;gap:.4rem;margin-bottom:1rem}
+.share-tab-btn{flex:1;background:var(--bg-card2);border:1px solid var(--border);border-radius:6px;padding:.38rem;font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text-secondary);cursor:pointer;transition:all .2s}
+.share-tab-btn.active{background:rgba(124,58,237,.15);border-color:rgba(124,58,237,.4);color:#a78bfa}
+
+/* ─── VIEW TOGGLE ─── */
+.view-toggle{display:flex;gap:.2rem;background:var(--bg-deep);border:1px solid var(--border);border-radius:8px;padding:3px}
+.vtbtn{background:none;border:none;color:var(--text-dim);padding:.28rem .6rem;border-radius:5px;cursor:pointer;font-size:.68rem;font-weight:700;transition:all .2s;text-transform:uppercase;letter-spacing:.5px}
+.vtbtn.active{background:var(--bg-card2);color:var(--text-primary)}
+
+/* ─── SESSION LIST ─── */
+.session-item{background:var(--bg-card2);border:1px solid var(--border);border-radius:8px;padding:.75rem;margin-bottom:.5rem;font-size:.8rem}
+.session-date{font-weight:700;color:var(--text-primary);margin-bottom:.35rem}
+.session-details{display:flex;gap:1rem;color:var(--text-secondary);flex-wrap:wrap}
+.session-details span{color:#a78bfa;font-weight:700}
+
+/* ─── TOAST ─── */
+#toast-container{position:fixed;bottom:1.5rem;right:1.5rem;z-index:9999;display:flex;flex-direction:column;gap:.5rem}
+.toast{background:var(--bg-card2);border:1px solid var(--border-bright);border-radius:10px;padding:.7rem 1rem;font-size:.83rem;font-weight:700;animation:toastIn .3s ease,toastOut .3s ease 2.7s forwards;max-width:270px;box-shadow:0 4px 24px rgba(0,0,0,.6)}
+.toast.success{border-color:rgba(16,185,129,.4);color:#10b981}
+.toast.error{border-color:rgba(239,68,68,.4);color:#ef4444}
+.toast.info{border-color:rgba(6,182,212,.4);color:#06b6d4}
+.toast.levelup-t{border-color:rgba(245,158,11,.4);color:#f59e0b}
+@keyframes toastIn{from{opacity:0;transform:translateX(110%)}to{opacity:1;transform:translateX(0)}}
+@keyframes toastOut{from{opacity:1}to{opacity:0}}
+
+/* ─── CONFETTI ─── */
+.confetti-piece{position:fixed;pointer-events:none;z-index:9999;animation:confettiFall linear forwards}
+@keyframes confettiFall{0%{transform:translateY(-100px) rotate(0deg);opacity:1}100%{transform:translateY(110vh) rotate(720deg);opacity:0}}
+
+/* ─── LEVEL UP OVERLAY ─── */
+#lu-overlay{display:none;position:fixed;inset:0;z-index:9998;background:rgba(0,0,0,.82);backdrop-filter:blur(10px);align-items:center;justify-content:center}
+#lu-overlay.show{display:flex}
+.lu-card{background:linear-gradient(160deg,#0d0d1a,#1a0a2e);border:2px solid #7c3aed;border-radius:20px;padding:3rem 2.5rem;text-align:center;box-shadow:0 0 70px rgba(124,58,237,.55),0 0 140px rgba(124,58,237,.25);animation:luPop .5s cubic-bezier(.34,1.56,.64,1)}
+@keyframes luPop{from{transform:scale(.4);opacity:0}to{transform:scale(1);opacity:1}}
+.lu-label{font-size:.75rem;font-weight:800;text-transform:uppercase;letter-spacing:3px;color:#f59e0b;margin-bottom:.5rem}
+.lu-emoji{font-size:5rem;display:block;margin:.5rem 0;filter:drop-shadow(0 0 20px rgba(124,58,237,.8))}
+.lu-name{font-size:2rem;font-weight:900;background:linear-gradient(135deg,#f59e0b,#a78bfa);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.lu-lv{font-size:.8rem;color:var(--text-secondary);margin-top:.4rem}
+.lu-btn{margin-top:1.5rem;padding:.65rem 2.2rem;background:linear-gradient(135deg,#7c3aed,#4f46e5);border:none;border-radius:8px;color:#fff;font-weight:800;cursor:pointer;font-size:.875rem;text-transform:uppercase;letter-spacing:1px;box-shadow:0 4px 16px rgba(124,58,237,.4)}
+.lu-btn:hover{transform:translateY(-1px);box-shadow:0 6px 20px rgba(124,58,237,.6)}
+
+/* ─── MISC ─── */
+.empty-state{text-align:center;padding:2.5rem 1rem;color:var(--text-dim);font-size:.85rem}
+.empty-state-emoji{font-size:2.5rem;display:block;margin-bottom:.75rem;opacity:.45}
+.debug-row{display:flex;justify-content:space-between;align-items:center;padding:.4rem 0;border-bottom:1px solid var(--border);font-size:.8rem}
+.debug-row:last-child{border-bottom:none}
+.trend-up{color:#ef4444}
+.trend-down{color:#10b981}
+.trend-same{color:var(--text-dim)}
+.player-name-input{flex:1;background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:6px;padding:.35rem .65rem;color:var(--text-primary);font-size:.85rem;outline:none;transition:all .2s}
+.player-name-input:focus{border-color:#7c3aed;box-shadow:0 0 0 2px rgba(124,58,237,.2)}
+::-webkit-scrollbar{width:5px}
+::-webkit-scrollbar-track{background:var(--bg-deep)}
+::-webkit-scrollbar-thumb{background:var(--border-bright);border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:#7c3aed}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">⚔️ FitTracker</div>
+  <nav>
+    <button class="tab-btn active" data-tab="tracker">Tracker</button>
+    <button class="tab-btn" data-tab="history">History</button>
+    <button class="tab-btn" data-tab="levels">Levels</button>
+    <button class="tab-btn" data-tab="leaderboard">🏆 Board</button>
+    <button class="tab-btn" data-tab="settings">Settings</button>
+  </nav>
+</header>
+
+<div class="app-layout">
+  <main>
+
+    <!-- ══ TRACKER TAB ══ -->
+    <div class="tab-content active" id="tab-tracker">
+      <div class="card level-card">
+        <div class="level-header">
+          <div class="level-emoji" id="lc-emoji">🧑‍🌾</div>
+          <div class="level-info">
+            <div class="level-name" id="lc-name">Villager</div>
+            <div class="level-number" id="lc-number">Level 1 · 0 XP</div>
+          </div>
+          <div class="streak-badge">🔥 <span id="lc-streak">0</span> days</div>
+        </div>
+        <div>
+          <div class="xp-label">
+            <span>XP Progress</span>
+            <span id="lc-xp-label">0 / 10 XP</span>
+          </div>
+          <div class="xp-bar-bg"><div class="xp-bar-fill" id="lc-xp-bar" style="width:0%"></div></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">⚡ Daily Check-In</div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label">🏋️ Workout (min)</label>
+            <input type="number" class="form-input" id="inp-workout" placeholder="0 – 120" min="0" max="120">
+          </div>
+          <div class="form-group">
+            <label class="form-label">🥩 Protein (g)</label>
+            <input type="number" class="form-input" id="inp-protein" placeholder="0 – 300" min="0" max="300">
+          </div>
+          <div class="form-group">
+            <label class="form-label">👟 Steps</label>
+            <input type="number" class="form-input" id="inp-steps" placeholder="0 – 20,000" min="0" max="20000">
+          </div>
+          <div class="form-group">
+            <label class="form-label" id="weight-lbl">⚖️ Bodyweight (lbs)</label>
+            <input type="number" class="form-input" id="inp-weight" placeholder="e.g. 175" min="0" step="1">
+          </div>
+        </div>
+        <button class="submit-btn" id="log-btn">⚔️ Log Activity</button>
+      </div>
+
+      <div class="card">
+        <div class="card-title">📊 Today's Progress</div>
+        <div id="today-progress"><div class="empty-state"><span class="empty-state-emoji">🎯</span>Log your first activity today!</div></div>
+      </div>
+    </div>
+
+    <!-- ══ HISTORY TAB ══ -->
+    <div class="tab-content" id="tab-history">
+      <div class="card">
+        <div class="history-header">
+          <div class="card-title" style="margin-bottom:0">📅 Activity Log</div>
+          <div style="display:flex;gap:.5rem;align-items:center">
+            <div class="view-toggle">
+              <button class="vtbtn active" id="vt-table">Table</button>
+              <button class="vtbtn" id="vt-sessions">Sessions</button>
+            </div>
+            <button class="btn-sm btn-accent" id="export-csv-btn">⬇ CSV</button>
+          </div>
+        </div>
+        <div style="margin-top:1rem" id="history-table-wrap">
+          <table id="history-table">
+            <thead>
+              <tr>
+                <th>Date</th><th>Workout</th><th>Protein</th><th>Steps</th><th>Weight</th><th>XP</th><th></th>
+              </tr>
+            </thead>
+            <tbody id="history-tbody"></tbody>
+          </table>
+        </div>
+        <div id="history-sessions-wrap" style="display:none">
+          <div id="sessions-list"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ LEVELS TAB ══ -->
+    <div class="tab-content" id="tab-levels">
+      <div class="card">
+        <div class="card-title">⚔️ Character Classes</div>
+        <div class="levels-grid" id="levels-grid"></div>
+      </div>
+    </div>
+
+    <!-- ══ LEADERBOARD TAB ══ -->
+    <div class="tab-content" id="tab-leaderboard">
+      <div class="card">
+        <div class="card-title">🏆 Global Rankings</div>
+        <div style="display:flex;align-items:center;gap:.6rem;margin-bottom:1rem;padding-bottom:.75rem;border-bottom:1px solid var(--border)">
+          <span style="font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text-dim);white-space:nowrap">Your Name</span>
+          <input type="text" id="player-name-inp" class="player-name-input" placeholder="Enter your name…" maxlength="20">
+        </div>
+        <div id="lb-list"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">🤝 Multiplayer — Share & Compete</div>
+        <div class="share-tabs">
+          <button class="share-tab-btn active" id="stab-export" onclick="switchShareTab('export')">My Code</button>
+          <button class="share-tab-btn" id="stab-import" onclick="switchShareTab('import')">Add Friend</button>
+          <button class="share-tab-btn" id="stab-manage" onclick="switchShareTab('manage')">Friends</button>
+        </div>
+
+        <div id="sp-export">
+          <p style="font-size:.8rem;color:var(--text-secondary);margin-bottom:.75rem">Share this code with friends — they paste it to add you to their leaderboard. Updates when you regenerate it.</p>
+          <div class="friend-code-box" id="my-code-box" onclick="copyMyCode()">Generating…</div>
+          <button class="btn-sm btn-success" style="margin-top:.5rem;width:100%" onclick="copyMyCode()">📋 Copy Code</button>
+        </div>
+
+        <div id="sp-import" style="display:none">
+          <p style="font-size:.8rem;color:var(--text-secondary);margin-bottom:.75rem">Paste a friend's code to add them to your leaderboard.</p>
+          <textarea id="import-code-inp" class="form-input" rows="4" placeholder="Paste friend code here…" style="resize:vertical;font-family:monospace;font-size:.72rem"></textarea>
+          <button class="btn-sm btn-success" style="margin-top:.5rem;width:100%" onclick="importFriend()">➕ Add Friend</button>
+        </div>
+
+        <div id="sp-manage" style="display:none">
+          <div id="friends-list"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ SETTINGS TAB ══ -->
+    <div class="tab-content" id="tab-settings">
+      <div class="card">
+        <div class="settings-section">
+          <div class="settings-section-title">🎮 Preferences</div>
+          <div class="toggle-row">
+            <span class="toggle-label">Sound Effects</span>
+            <label class="toggle"><input type="checkbox" id="s-sound" onchange="savePref('sound',this.checked)"><span class="toggle-slider"></span></label>
+          </div>
+          <div class="toggle-row">
+            <span class="toggle-label">Confetti on Level Up</span>
+            <label class="toggle"><input type="checkbox" id="s-confetti" onchange="savePref('confetti',this.checked)"><span class="toggle-slider"></span></label>
+          </div>
+          <div class="toggle-row">
+            <span class="toggle-label">Bodyweight Unit</span>
+            <div class="unit-badge">
+              <button class="unit-opt active" id="u-lbs" onclick="setUnit('lbs')">lbs</button>
+              <button class="unit-opt" id="u-kg" onclick="setUnit('kg')">kg</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="settings-section">
+          <div class="settings-section-title">🎯 Daily Goals</div>
+          <div class="goals-grid">
+            <div class="form-group">
+              <label class="form-label">Workout Goal (min)</label>
+              <input type="number" class="form-input" id="g-workout" placeholder="60" min="1" max="120" onchange="saveGoal('workout',this.value)">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Protein Goal (g)</label>
+              <input type="number" class="form-input" id="g-protein" placeholder="150" min="1" max="300" onchange="saveGoal('protein',this.value)">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Steps Goal</label>
+              <input type="number" class="form-input" id="g-steps" placeholder="10000" min="100" max="20000" onchange="saveGoal('steps',this.value)">
+            </div>
+          </div>
+        </div>
+
+        <div class="settings-section">
+          <div class="settings-section-title">🐛 Debug — Delete Specific Days</div>
+          <div id="debug-list"></div>
+        </div>
+
+        <div class="settings-section" style="margin-bottom:0">
+          <div class="settings-section-title">⚠️ Danger Zone</div>
+          <button class="btn-sm btn-danger" style="width:100%" onclick="fullReset()">🗑 Reset All Data</button>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- ══ SIDEBAR ══ -->
+  <aside class="sidebar">
+    <div class="char-card">
+      <span class="char-emoji" id="sb-emoji">🧑‍🌾</span>
+      <div class="char-name" id="sb-name">Villager</div>
+      <div class="char-level" id="sb-lv">Level 1</div>
+      <div class="char-stats">
+        <div class="char-stat">
+          <div class="char-stat-val" id="sb-xp">0</div>
+          <div class="char-stat-label">Total XP</div>
+        </div>
+        <div class="char-stat">
+          <div class="char-stat-val" id="sb-streak">🔥 0</div>
+          <div class="char-stat-label">Streak</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">📈 All-Time Records</div>
+      <div class="all-time-grid">
+        <div class="stat-box"><div class="stat-box-val" id="sb-best-wo">—</div><div class="stat-box-label">Best Workout</div></div>
+        <div class="stat-box"><div class="stat-box-val" id="sb-best-pr">—</div><div class="stat-box-label">Best Protein</div></div>
+        <div class="stat-box"><div class="stat-box-val" id="sb-best-st">—</div><div class="stat-box-label">Best Steps</div></div>
+        <div class="stat-box"><div class="stat-box-val" id="sb-wt-trend">—</div><div class="stat-box-label">Weight Trend</div></div>
+      </div>
+    </div>
+  </aside>
+</div>
+
+<div id="toast-container"></div>
+
+<div id="lu-overlay">
+  <div class="lu-card">
+    <div class="lu-label">✨ Level Up!</div>
+    <span class="lu-emoji" id="lu-emoji">⚔️</span>
+    <div class="lu-name" id="lu-name">Fighter</div>
+    <div class="lu-lv" id="lu-lv">Level 4</div>
+    <button class="lu-btn" onclick="closeLevelUp()">Continue ▶</button>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════
+// CONSTANTS
+// ══════════════════════════════════════════
+
+const LEVELS = [
+  { name:'Villager',  emoji:'🧑‍🌾', threshold:0     },
+  { name:'Recruit',   emoji:'🪖',   threshold:10    },
+  { name:'Squire',    emoji:'🛡️',   threshold:20    },
+  { name:'Fighter',   emoji:'⚔️',   threshold:40    },
+  { name:'Knight',    emoji:'🏇',   threshold:80    },
+  { name:'Veteran',   emoji:'🗡️',   threshold:160   },
+  { name:'Elite',     emoji:'🦅',   threshold:320   },
+  { name:'Champion',  emoji:'🏆',   threshold:640   },
+  { name:'Warlord',   emoji:'🔱',   threshold:1280  },
+  { name:'Legend',    emoji:'🌟',   threshold:2560  },
+  { name:'Mythic',    emoji:'🐉',   threshold:5120  },
+  { name:'Ascendant', emoji:'✨',   threshold:10240 },
+];
+
+// ══════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════
+
+const DEFAULT_STATE = {
+  logs: {},
+  friends: [],
+  playerName: 'Adventurer',
+  settings: {
+    sound: true,
+    confetti: true,
+    unit: 'lbs',
+    goals: { workout: 60, protein: 150, steps: 10000 }
+  }
+};
+
+let S = JSON.parse(JSON.stringify(DEFAULT_STATE));
+
+function loadState() {
+  try {
+    const raw = localStorage.getItem('fittracker_v3');
+    if (raw) {
+      const d = JSON.parse(raw);
+      S.logs        = d.logs        || {};
+      S.friends     = d.friends     || [];
+      S.playerName  = d.playerName  || 'Adventurer';
+      S.settings    = Object.assign({}, DEFAULT_STATE.settings, d.settings || {});
+      S.settings.goals = Object.assign({}, DEFAULT_STATE.settings.goals, (d.settings || {}).goals || {});
+    }
+  } catch(e) { console.warn('FitTracker load error', e); }
+}
+
+function saveState() {
+  try { localStorage.setItem('fittracker_v3', JSON.stringify(S)); } catch(e) {}
+}
+
+// ══════════════════════════════════════════
+// COMPUTED
+// ══════════════════════════════════════════
+
+function totalXP() {
+  return Object.values(S.logs).reduce((s,d) => s + (d.xp||0), 0);
+}
+
+function calcXP(wo, pr, st) {
+  return Math.floor((wo||0)/10) + Math.floor((pr||0)/10) + Math.floor((st||0)/1000);
+}
+
+function getLevelInfo(xp) {
+  let idx = 0;
+  for (let i = LEVELS.length-1; i >= 0; i--) {
+    if (xp >= LEVELS[i].threshold) { idx = i; break; }
+  }
+  const cur = LEVELS[idx];
+  const nxt = LEVELS[idx+1];
+  const pct = nxt ? (xp - cur.threshold) / (nxt.threshold - cur.threshold) : 1;
+  return { idx, level: cur, nextLevel: nxt, pct: Math.min(1, Math.max(0, pct)) };
+}
+
+function getToday() {
+  return new Date().toISOString().split('T')[0];
+}
+
+function shiftDate(d, n) {
+  const dt = new Date(d + 'T12:00:00');
+  dt.setDate(dt.getDate() + n);
+  return dt.toISOString().split('T')[0];
+}
+
+function calcStreak() {
+  const today = getToday();
+  if (!S.logs[today] && !S.logs[shiftDate(today,-1)]) return 0;
+  let check = S.logs[today] ? today : shiftDate(today,-1);
+  let n = 0;
+  while (S.logs[check]) { n++; check = shiftDate(check,-1); }
+  return n;
+}
+
+function allTimeStats() {
+  const logs = Object.values(S.logs);
+  if (!logs.length) return { wo:0, pr:0, st:0, wt:null };
+  const wtLogs = Object.entries(S.logs).filter(([,v])=>v.weight).sort(([a],[b])=>a.localeCompare(b));
+  let wt = null;
+  if (wtLogs.length >= 2) {
+    const first = wtLogs[0][1].weight;
+    const last  = wtLogs[wtLogs.length-1][1].weight;
+    wt = { first, last, diff: last - first };
+  }
+  return {
+    wo: Math.max(0, ...logs.map(l=>l.workout||0)),
+    pr: Math.max(0, ...logs.map(l=>l.protein||0)),
+    st: Math.max(0, ...logs.map(l=>l.steps||0)),
+    wt
+  };
+}
+
+// ══════════════════════════════════════════
+// RENDER
+// ══════════════════════════════════════════
+
+function updateAll() {
+  const xp   = totalXP();
+  const info = getLevelInfo(xp);
+  const str  = calcStreak();
+
+  // Level card
+  document.getElementById('lc-emoji').textContent = info.level.emoji;
+  document.getElementById('lc-name').textContent  = info.level.name;
+  document.getElementById('lc-number').textContent = `Level ${info.idx+1} · ${xp} XP`;
+  document.getElementById('lc-streak').textContent = str;
+  document.getElementById('lc-xp-bar').style.width = (info.pct*100).toFixed(1)+'%';
+  const nextXP = info.nextLevel ? info.nextLevel.threshold : '∞';
+  document.getElementById('lc-xp-label').textContent = `${xp} / ${nextXP} XP`;
+
+  // Sidebar
+  document.getElementById('sb-emoji').textContent = info.level.emoji;
+  document.getElementById('sb-name').textContent  = info.level.name;
+  document.getElementById('sb-lv').textContent    = `Level ${info.idx+1}`;
+  document.getElementById('sb-xp').textContent    = xp.toLocaleString();
+  document.getElementById('sb-streak').textContent = `🔥 ${str}`;
+
+  const ats = allTimeStats();
+  document.getElementById('sb-best-wo').textContent = ats.wo ? `${ats.wo}m` : '—';
+  document.getElementById('sb-best-pr').textContent = ats.pr ? `${ats.pr}g` : '—';
+  document.getElementById('sb-best-st').textContent = ats.st ? ats.st.toLocaleString() : '—';
+  if (ats.wt) {
+    const d = ats.wt.diff, s = d>0?'+':'', cls = d>0?'trend-up':d<0?'trend-down':'trend-same';
+    document.getElementById('sb-wt-trend').innerHTML = `<span class="${cls}">${s}${d.toFixed(0)}${S.settings.unit}</span>`;
+  } else {
+    document.getElementById('sb-wt-trend').textContent = '—';
+  }
+
+  renderTodayProgress();
+  renderHistory();
+  renderLevels();
+  renderLeaderboard();
+  renderDebugList();
+  updateWeightLabel();
+  refreshMyCode();
+}
+
+function renderTodayProgress() {
+  const today = getToday();
+  const log   = S.logs[today];
+  const g     = S.settings.goals;
+  const el    = document.getElementById('today-progress');
+  if (!log) {
+    el.innerHTML = '<div class="empty-state"><span class="empty-state-emoji">🎯</span>Log your first activity today!</div>';
+    return;
+  }
+  const items = [
+    { label:'🏋️ Workout', val:log.workout||0, unit:'min', goal:g.workout },
+    { label:'🥩 Protein',  val:log.protein||0,  unit:'g',   goal:g.protein },
+    { label:'👟 Steps',    val:log.steps||0,    unit:'',    goal:g.steps   },
+  ];
+  el.innerHTML = items.map(it => {
+    const pct   = Math.min(100,(it.val/it.goal)*100);
+    const done  = it.val >= it.goal;
+    const color = done ? '#10b981' : pct>50 ? '#f59e0b' : '#7c3aed';
+    const valFmt = it.unit==='' ? it.val.toLocaleString() : it.val;
+    const goalFmt= it.unit==='' ? it.goal.toLocaleString() : it.goal;
+    return `<div style="margin-bottom:.8rem">
+      <div style="display:flex;justify-content:space-between;font-size:.75rem;margin-bottom:.3rem">
+        <span>${it.label}</span>
+        <span style="color:${color};font-weight:700">${valFmt}${it.unit} / ${goalFmt}${it.unit} ${done?'✓':''}</span>
+      </div>
+      <div style="height:6px;background:var(--xp-bg);border-radius:3px;overflow:hidden">
+        <div style="height:100%;width:${pct}%;background:${color};border-radius:3px;transition:width .6s ease"></div>
+      </div>
+    </div>`;
+  }).join('') + (log.weight ? `<div style="font-size:.75rem;color:var(--text-secondary);margin-top:.3rem">⚖️ Bodyweight: <strong style="color:var(--text-primary)">${log.weight} ${S.settings.unit}</strong></div>` : '');
+}
+
+function renderHistory() {
+  const entries = Object.entries(S.logs).sort(([a],[b])=>b.localeCompare(a));
+  const tbody   = document.getElementById('history-tbody');
+  const sesEl   = document.getElementById('sessions-list');
+
+  if (!entries.length) {
+    tbody.innerHTML  = '<tr><td colspan="7"><div class="empty-state"><span class="empty-state-emoji">📅</span>No activity logged yet</div></td></tr>';
+    sesEl.innerHTML  = '<div class="empty-state"><span class="empty-state-emoji">📅</span>No sessions yet</div>';
+    return;
+  }
+
+  tbody.innerHTML = entries.map(([date,log]) => {
+    const wDisp = log.weight ? `${log.weight}${S.settings.unit}` : '—';
+    return `<tr data-date="${date}">
+      <td>${fmtDate(date)}</td>
+      <td>${log.workout||0}m</td>
+      <td>${log.protein||0}g</td>
+      <td>${(log.steps||0).toLocaleString()}</td>
+      <td>${wDisp}</td>
+      <td><span style="color:#a78bfa;font-weight:700">+${log.xp||0}</span></td>
+      <td><div class="row-actions">
+        <button class="btn-sm" onclick="editDay('${date}')">✏️</button>
+        <button class="btn-sm btn-danger" onclick="deleteDay('${date}')">🗑</button>
+      </div></td>
+    </tr>
+    <tr id="er-${date}" style="display:none"><td colspan="7" style="padding:.4rem">
+      <div class="edit-panel">
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:.5rem;margin-bottom:.65rem">
+          <div class="form-group"><label class="form-label">Workout</label><input type="number" class="form-input" id="ew-${date}" value="${log.workout||''}" min="0" max="120" placeholder="min"></div>
+          <div class="form-group"><label class="form-label">Protein</label><input type="number" class="form-input" id="ep-${date}" value="${log.protein||''}" min="0" max="300" placeholder="g"></div>
+          <div class="form-group"><label class="form-label">Steps</label><input type="number" class="form-input" id="es-${date}" value="${log.steps||''}" min="0" max="20000"></div>
+          <div class="form-group"><label class="form-label">Weight</label><input type="number" class="form-input" id="ewt-${date}" value="${log.weight||''}" min="0" step="1"></div>
+        </div>
+        <button class="btn-sm btn-success" onclick="saveEdit('${date}')">💾 Save</button>
+        <button class="btn-sm" style="margin-left:.4rem" onclick="cancelEdit('${date}')">Cancel</button>
+      </div>
+    </td></tr>`;
+  }).join('');
+
+  sesEl.innerHTML = entries.map(([date,log]) => `
+    <div class="session-item">
+      <div class="session-date">${fmtDate(date)}</div>
+      <div class="session-details">
+        <div>🏋️ <span>${log.workout||0}m</span></div>
+        <div>🥩 <span>${log.protein||0}g</span></div>
+        <div>👟 <span>${(log.steps||0).toLocaleString()}</span></div>
+        ${log.weight?`<div>⚖️ <span>${log.weight}${S.settings.unit}</span></div>`:''}
+        <div>⚡ <span>+${log.xp||0} XP</span></div>
+      </div>
+    </div>`).join('');
+}
+
+function renderLevels() {
+  const xp  = totalXP();
+  const cur = getLevelInfo(xp).idx;
+  document.getElementById('levels-grid').innerHTML = LEVELS.map((lv,i)=>{
+    const nxtT = LEVELS[i+1] ? LEVELS[i+1].threshold : null;
+    const range = nxtT ? `${lv.threshold} – ${nxtT} XP` : `${lv.threshold}+ XP`;
+    const cls = i===cur ? 'is-current' : i>cur ? 'is-locked' : '';
+    return `<div class="level-item ${cls}">
+      <div style="font-size:1.5rem">${lv.emoji}</div>
+      <div>
+        <div class="level-item-name" style="${i===cur?'color:#a78bfa':''}">${lv.name}</div>
+        <div class="level-item-range">${range}</div>
+      </div>
+      ${i===cur?'<span style="margin-left:auto;font-size:.62rem;color:#a78bfa;font-weight:700;text-transform:uppercase;letter-spacing:.5px">Current</span>':''}
+    </div>`;
+  }).join('');
+}
+
+function renderLeaderboard() {
+  const myXP   = totalXP();
+  const myInfo = getLevelInfo(myXP);
+  const myStr  = calcStreak();
+
+  const players = [
+    { name: S.playerName||'You', emoji: myInfo.level.emoji, levelIdx: myInfo.idx, xp: myXP, streak: myStr, isYou: true },
+    ...S.friends.map(f => ({ ...f, isYou: false }))
+  ].sort((a,b)=>b.xp-a.xp);
+
+  const el = document.getElementById('lb-list');
+  el.innerHTML = players.map((p,i)=>{
+    const rank = i+1;
+    const rankHtml = rank===1 ? `<span class="lb-rank gold">🥇</span>`
+                   : rank===2 ? `<span class="lb-rank silver">🥈</span>`
+                   : rank===3 ? `<span class="lb-rank bronze">🥉</span>`
+                   : `<span class="lb-rank other">#${rank}</span>`;
+    const rankCls = rank<=3 ? `rank-${rank}` : '';
+    const lv = LEVELS[Math.min(p.levelIdx, LEVELS.length-1)] || LEVELS[0];
+    return `<div class="lb-entry ${p.isYou?'is-you':''} ${rankCls}">
+      ${rankHtml}
+      <div class="lb-emoji">${p.emoji}</div>
+      <div class="lb-info">
+        <div class="lb-name">${escHtml(p.name)} ${p.isYou?'<span style="font-size:.6rem;color:var(--text-dim)">(you)</span>':''}</div>
+        <div class="lb-lv">Lv.${p.levelIdx+1} ${lv.name}</div>
+      </div>
+      <div style="text-align:right">
+        <div class="lb-xp">${p.xp.toLocaleString()} XP</div>
+        <div class="lb-streak">🔥 ${p.streak}d</div>
+      </div>
+    </div>`;
+  }).join('') + (players.length===1 ? '<div class="empty-state" style="margin-top:.75rem"><span class="empty-state-emoji">🤝</span>Add friends via the Multiplayer section below!</div>' : '');
+}
+
+function renderDebugList() {
+  const entries = Object.entries(S.logs).sort(([a],[b])=>b.localeCompare(a));
+  const el = document.getElementById('debug-list');
+  if (!entries.length) {
+    el.innerHTML = '<div style="font-size:.8rem;color:var(--text-dim)">No logged days yet</div>';
+    return;
+  }
+  el.innerHTML = entries.map(([date])=>`
+    <div class="debug-row">
+      <span>${fmtDate(date)}</span>
+      <button class="btn-sm btn-danger" onclick="deleteDay('${date}')">Delete</button>
+    </div>`).join('');
+}
+
+// ══════════════════════════════════════════
+// LOGGING
+// ══════════════════════════════════════════
+
+function logActivity() {
+  const wo  = clamp(parseInt(document.getElementById('inp-workout').value)||0, 0, 120);
+  const pr  = clamp(parseInt(document.getElementById('inp-protein').value)||0, 0, 300);
+  const st  = clamp(parseInt(document.getElementById('inp-steps').value)||0, 0, 20000);
+  const wt  = Math.max(0, parseInt(document.getElementById('inp-weight').value)||0);
+
+  if (!wo && !pr && !st && !wt) { toast('Enter at least one value', 'error'); return; }
+
+  const today    = getToday();
+  const prevXP   = totalXP();
+  const prevLvl  = getLevelInfo(prevXP).idx;
+  const existing = S.logs[today];
+
+  const newWo = clamp((existing?.workout||0)+wo, 0, 120);
+  const newPr = clamp((existing?.protein||0)+pr, 0, 300);
+  const newSt = clamp((existing?.steps||0)+st,   0, 20000);
+  const newWt = wt || existing?.weight || 0;
+
+  S.logs[today] = { workout:newWo, protein:newPr, steps:newSt, weight:newWt, xp:calcXP(newWo,newPr,newSt) };
+
+  saveState();
+  ['inp-workout','inp-protein','inp-steps','inp-weight'].forEach(id=>{ document.getElementById(id).value=''; });
+
+  const gained = totalXP() - prevXP;
+  playChime();
+  if (gained > 0) toast(`+${gained} XP earned! 🔥`, 'success');
+  else toast('Activity logged! ⚡', 'success');
+
+  const newLvl = getLevelInfo(totalXP()).idx;
+  if (newLvl > prevLvl) setTimeout(()=>showLevelUp(getLevelInfo(totalXP())), 700);
+
+  updateAll();
+}
+
+// ══════════════════════════════════════════
+// HISTORY ACTIONS
+// ══════════════════════════════════════════
+
+function editDay(date) {
+  const row = document.getElementById(`er-${date}`);
+  const open = row.style.display !== 'none';
+  document.querySelectorAll('[id^="er-"]').forEach(r=>r.style.display='none');
+  if (!open) row.style.display='';
+}
+
+function cancelEdit(date) {
+  const row = document.getElementById(`er-${date}`);
+  if (row) row.style.display='none';
+}
+
+function saveEdit(date) {
+  const wo  = clamp(parseInt(document.getElementById(`ew-${date}`).value)||0,  0, 120);
+  const pr  = clamp(parseInt(document.getElementById(`ep-${date}`).value)||0,  0, 300);
+  const st  = clamp(parseInt(document.getElementById(`es-${date}`).value)||0,  0, 20000);
+  const wt  = Math.max(0, parseInt(document.getElementById(`ewt-${date}`).value)||0);
+  S.logs[date] = { workout:wo, protein:pr, steps:st, weight:wt, xp:calcXP(wo,pr,st) };
+  saveState();
+  toast('Day updated ✓', 'success');
+  updateAll();
+}
+
+function deleteDay(date) {
+  if (!confirm(`Delete log for ${fmtDate(date)}?`)) return;
+  delete S.logs[date];
+  saveState();
+  toast('Day deleted', 'info');
+  updateAll();
+}
+
+// ══════════════════════════════════════════
+// SETTINGS
+// ══════════════════════════════════════════
+
+function savePref(key, val) {
+  S.settings[key] = val;
+  saveState();
+}
+
+function saveGoal(key, val) {
+  S.settings.goals[key] = parseInt(val)||0;
+  saveState();
+  renderTodayProgress();
+}
+
+function setUnit(u) {
+  S.settings.unit = u;
+  document.getElementById('u-lbs').classList.toggle('active', u==='lbs');
+  document.getElementById('u-kg').classList.toggle('active',  u==='kg');
+  saveState();
+  updateAll();
+}
+
+function updateWeightLabel() {
+  document.getElementById('weight-lbl').textContent = `⚖️ Bodyweight (${S.settings.unit})`;
+}
+
+function loadSettingsUI() {
+  document.getElementById('s-sound').checked    = S.settings.sound !== false;
+  document.getElementById('s-confetti').checked = S.settings.confetti !== false;
+  document.getElementById('u-lbs').classList.toggle('active', S.settings.unit !== 'kg');
+  document.getElementById('u-kg').classList.toggle('active',  S.settings.unit === 'kg');
+  document.getElementById('g-workout').value = S.settings.goals.workout || 60;
+  document.getElementById('g-protein').value = S.settings.goals.protein || 150;
+  document.getElementById('g-steps').value   = S.settings.goals.steps   || 10000;
+}
+
+function fullReset() {
+  if (!confirm('Reset ALL data? This cannot be undone.')) return;
+  S.logs = {}; S.friends = []; S.playerName = 'Adventurer';
+  saveState();
+  document.getElementById('player-name-inp').value = S.playerName;
+  toast('All data reset', 'info');
+  updateAll();
+}
+
+// ══════════════════════════════════════════
+// MULTIPLAYER / FRIEND CODES
+// ══════════════════════════════════════════
+
+function genMyCode() {
+  const xp   = totalXP();
+  const info = getLevelInfo(xp);
+  const str  = calcStreak();
+  return btoa(JSON.stringify({ v:1, name:S.playerName||'Anonymous', emoji:info.level.emoji, levelIdx:info.idx, xp, streak:str, updated:getToday() }));
+}
+
+function refreshMyCode() {
+  const el = document.getElementById('my-code-box');
+  if (el) el.textContent = genMyCode();
+}
+
+function copyMyCode() {
+  const code = genMyCode();
+  navigator.clipboard.writeText(code)
+    .then(()=>toast('Code copied to clipboard! 📋','success'))
+    .catch(()=>toast('Select and copy the code manually','info'));
+}
+
+function importFriend() {
+  const raw = document.getElementById('import-code-inp').value.trim();
+  if (!raw) { toast('Paste a friend code first','error'); return; }
+  try {
+    const d = JSON.parse(atob(raw));
+    if (!d.name || d.xp===undefined) throw 0;
+    const idx = S.friends.findIndex(f=>f.name===d.name);
+    const entry = { name:d.name, emoji:d.emoji||'👤', levelIdx:d.levelIdx||0, xp:d.xp, streak:d.streak||0, updated:d.updated||'?' };
+    if (idx>=0) { S.friends[idx]=entry; toast(`Updated ${d.name}'s stats! 🔄`,'info'); }
+    else { S.friends.push(entry); toast(`${d.name} added to leaderboard! 🎉`,'success'); }
+    document.getElementById('import-code-inp').value='';
+    saveState(); renderLeaderboard(); renderFriendsList();
+  } catch(e) { toast('Invalid friend code','error'); }
+}
+
+function removeFriend(name) {
+  S.friends = S.friends.filter(f=>f.name!==name);
+  saveState(); renderLeaderboard(); renderFriendsList();
+  toast(`Removed ${name}`,'info');
+}
+
+function renderFriendsList() {
+  const el = document.getElementById('friends-list');
+  if (!S.friends.length) {
+    el.innerHTML='<div class="empty-state"><span class="empty-state-emoji">🤷</span>No friends added yet</div>';
+    return;
+  }
+  el.innerHTML = S.friends.map(f=>`
+    <div style="display:flex;align-items:center;gap:.75rem;padding:.6rem 0;border-bottom:1px solid var(--border)">
+      <span style="font-size:1.2rem">${f.emoji}</span>
+      <div style="flex:1">
+        <div style="font-weight:700;font-size:.875rem">${escHtml(f.name)}</div>
+        <div style="font-size:.68rem;color:var(--text-dim)">${f.xp} XP · Updated: ${f.updated||'?'}</div>
+      </div>
+      <button class="btn-sm btn-danger" onclick="removeFriend('${escHtml(f.name).replace(/'/g,"\\'")}')">Remove</button>
+    </div>`).join('');
+}
+
+let curShareTab='export';
+function switchShareTab(tab) {
+  curShareTab=tab;
+  document.getElementById('sp-export').style.display  = tab==='export'  ? '':'none';
+  document.getElementById('sp-import').style.display  = tab==='import'  ? '':'none';
+  document.getElementById('sp-manage').style.display  = tab==='manage'  ? '':'none';
+  document.getElementById('stab-export').classList.toggle('active', tab==='export');
+  document.getElementById('stab-import').classList.toggle('active', tab==='import');
+  document.getElementById('stab-manage').classList.toggle('active', tab==='manage');
+  if (tab==='manage') renderFriendsList();
+}
+
+// ══════════════════════════════════════════
+// SOUND (Web Audio API)
+// ══════════════════════════════════════════
+
+let _actx = null;
+function getACtx() {
+  if (!_actx) _actx = new (window.AudioContext||window.webkitAudioContext)();
+  return _actx;
+}
+
+function playTone(freq, start, dur, type='sine', vol=0.18) {
+  try {
+    const ctx = getACtx();
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.connect(g); g.connect(ctx.destination);
+    o.type = type; o.frequency.value = freq;
+    g.gain.setValueAtTime(0, start);
+    g.gain.linearRampToValueAtTime(vol, start+0.04);
+    g.gain.exponentialRampToValueAtTime(0.001, start+dur);
+    o.start(start); o.stop(start+dur);
+  } catch(e) {}
+}
+
+function playChime() {
+  if (!S.settings.sound) return;
+  try {
+    const ctx = getACtx(), t = ctx.currentTime;
+    [[523.25,0],[659.25,.15],[783.99,.3]].forEach(([f,d])=>playTone(f,t+d,.4,'sine'));
+  } catch(e) {}
+}
+
+function playLevelUpSound() {
+  if (!S.settings.sound) return;
+  try {
+    const ctx = getACtx(), t = ctx.currentTime;
+    [[523.25,0],[659.25,.1],[783.99,.2],[1046.5,.32]].forEach(([f,d])=>playTone(f,t+d,.6,'triangle',0.22));
+  } catch(e) {}
+}
+
+// ══════════════════════════════════════════
+// CONFETTI
+// ══════════════════════════════════════════
+
+function spawnConfetti() {
+  if (!S.settings.confetti) return;
+  const colors=['#7c3aed','#06b6d4','#f59e0b','#10b981','#ef4444','#ec4899','#a78bfa'];
+  for (let i=0;i<90;i++) {
+    const el=document.createElement('div');
+    el.className='confetti-piece';
+    const size=Math.random()*10+5;
+    el.style.cssText=`left:${Math.random()*100}vw;top:-20px;background:${colors[Math.floor(Math.random()*colors.length)]};width:${size}px;height:${size}px;border-radius:${Math.random()>.5?'50%':'3px'};animation-duration:${Math.random()*2+2.5}s;animation-delay:${Math.random()*.8}s;`;
+    document.body.appendChild(el);
+    setTimeout(()=>el.remove(),4500);
+  }
+}
+
+// ══════════════════════════════════════════
+// LEVEL UP
+// ══════════════════════════════════════════
+
+function showLevelUp(info) {
+  document.getElementById('lu-emoji').textContent = info.level.emoji;
+  document.getElementById('lu-name').textContent  = info.level.name;
+  document.getElementById('lu-lv').textContent    = `Level ${info.idx+1} Unlocked`;
+  document.getElementById('lu-overlay').classList.add('show');
+  playLevelUpSound();
+  spawnConfetti();
+}
+
+function closeLevelUp() {
+  document.getElementById('lu-overlay').classList.remove('show');
+}
+
+// ══════════════════════════════════════════
+// TOAST
+// ══════════════════════════════════════════
+
+function toast(msg, type='info') {
+  const c=document.getElementById('toast-container');
+  const el=document.createElement('div');
+  el.className=`toast ${type}`; el.textContent=msg;
+  c.appendChild(el);
+  setTimeout(()=>el.remove(),3300);
+}
+
+// ══════════════════════════════════════════
+// TABS
+// ══════════════════════════════════════════
+
+function switchTab(tab) {
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));
+  document.querySelectorAll('.tab-content').forEach(c=>c.classList.toggle('active',c.id===`tab-${tab}`));
+  if (tab==='leaderboard') { renderLeaderboard(); refreshMyCode(); }
+}
+
+// ══════════════════════════════════════════
+// HELPERS
+// ══════════════════════════════════════════
+
+function clamp(v,min,max){ return Math.min(max,Math.max(min,v)); }
+
+function fmtDate(d) {
+  return new Date(d+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ══════════════════════════════════════════
+// INIT
+// ══════════════════════════════════════════
+
+document.querySelectorAll('.tab-btn').forEach(b=>b.addEventListener('click',()=>switchTab(b.dataset.tab)));
+document.getElementById('log-btn').addEventListener('click', logActivity);
+
+['inp-workout','inp-protein','inp-steps','inp-weight'].forEach(id=>{
+  document.getElementById(id).addEventListener('keydown',e=>{ if(e.key==='Enter') logActivity(); });
+});
+
+document.getElementById('vt-table').addEventListener('click',()=>{
+  document.getElementById('vt-table').classList.add('active');
+  document.getElementById('vt-sessions').classList.remove('active');
+  document.getElementById('history-table-wrap').style.display='';
+  document.getElementById('history-sessions-wrap').style.display='none';
+});
+document.getElementById('vt-sessions').addEventListener('click',()=>{
+  document.getElementById('vt-sessions').classList.add('active');
+  document.getElementById('vt-table').classList.remove('active');
+  document.getElementById('history-table-wrap').style.display='none';
+  document.getElementById('history-sessions-wrap').style.display='';
+});
+
+document.getElementById('export-csv-btn').addEventListener('click',()=>{
+  const rows = [['Date','Workout (min)','Protein (g)','Steps','Bodyweight','XP']];
+  Object.entries(S.logs).sort(([a],[b])=>a.localeCompare(b)).forEach(([d,l])=>{
+    rows.push([d,l.workout||0,l.protein||0,l.steps||0,l.weight||'',l.xp||0]);
+  });
+  const csv  = rows.map(r=>r.join(',')).join('\n');
+  const blob = new Blob([csv],{type:'text/csv'});
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href=url; a.download='fittracker_export.csv'; a.click();
+  URL.revokeObjectURL(url);
+  toast('CSV exported! 📊','success');
+});
+
+document.getElementById('player-name-inp').addEventListener('input', function() {
+  S.playerName = this.value || 'Adventurer';
+  saveState();
+  renderLeaderboard();
+  refreshMyCode();
+});
+
+loadState();
+loadSettingsUI();
+document.getElementById('player-name-inp').value = S.playerName;
+updateAll();
+</script>
+</body>
+</html>
