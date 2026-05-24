@@ -898,7 +898,8 @@ function genMyCode() {
   const xp   = totalXP();
   const info = getLevelInfo(xp);
   const str  = calcStreak();
-  return btoa(JSON.stringify({ v:1, name:S.playerName||'Anonymous', emoji:info.level.emoji, levelIdx:info.idx, xp, streak:str, updated:getToday() }));
+  const json = JSON.stringify({ v:1, name:S.playerName||'Anonymous', emoji:info.level.emoji, levelIdx:info.idx, xp, streak:str, updated:getToday() });
+  return btoa(unescape(encodeURIComponent(json)));
 }
 
 function refreshMyCode() {
@@ -936,7 +937,7 @@ function importFriend() {
   const raw = document.getElementById('import-code-inp').value.trim();
   if (!raw) { toast('Paste a friend code first','error'); return; }
   try {
-    const d = JSON.parse(atob(raw));
+    const d = JSON.parse(decodeURIComponent(escape(atob(raw))));
     if (!d.name || d.xp===undefined) throw 0;
     const idx = S.friends.findIndex(f=>f.name===d.name);
     const entry = { name:d.name, emoji:d.emoji||'👤', levelIdx:d.levelIdx||0, xp:d.xp, streak:d.streak||0, updated:d.updated||'?' };
