@@ -332,15 +332,41 @@ tbody tr:hover .row-actions{opacity:1}
       <div class="card">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
           <div class="card-title" style="margin-bottom:0">🏆 Global Rankings</div>
-          <div style="display:flex;align-items:center;gap:.4rem;font-size:.72rem" id="lb-status-badge">
+          <div style="display:flex;align-items:center;gap:.4rem;font-size:.72rem">
             <span class="sync-dot offline" id="lb-dot"></span>
             <span id="lb-status-text" style="color:var(--text-dim)">Connecting…</span>
           </div>
         </div>
-        <div style="display:flex;align-items:center;gap:.6rem;margin-bottom:1rem;padding-bottom:.75rem;border-bottom:1px solid var(--border)">
-          <span style="font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text-dim);white-space:nowrap">Your Name</span>
-          <input type="text" id="player-name-inp" class="player-name-input" placeholder="Enter your name…" maxlength="20">
+
+        <!-- Not registered -->
+        <div id="lb-reg-panel" style="margin-bottom:1rem;padding-bottom:1rem;border-bottom:1px solid var(--border)">
+          <p style="font-size:.78rem;color:var(--text-secondary);margin-bottom:.75rem">Pick a name and PIN to join the live leaderboard. <strong style="color:var(--text-primary)">Remember your PIN</strong> — it locks your score so no one else can change it.</p>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:.6rem;margin-bottom:.6rem">
+            <div class="form-group">
+              <label class="form-label">Name</label>
+              <input type="text" class="form-input" id="reg-name" placeholder="Your name" maxlength="20">
+            </div>
+            <div class="form-group">
+              <label class="form-label">PIN (4+ chars)</label>
+              <input type="password" class="form-input" id="reg-pin" placeholder="Keep this secret" maxlength="32">
+            </div>
+          </div>
+          <button class="submit-btn" style="padding:.6rem" id="reg-btn" onclick="registerProfile()">⚔️ Join Leaderboard</button>
         </div>
+
+        <!-- Registered -->
+        <div id="lb-in-panel" style="display:none;margin-bottom:1rem;padding-bottom:1rem;border-bottom:1px solid var(--border)">
+          <div style="display:flex;align-items:center;gap:.75rem">
+            <span id="lb-in-emoji" style="font-size:1.6rem">🧑‍🌾</span>
+            <div style="flex:1">
+              <div style="font-weight:800;font-size:.95rem" id="lb-in-name">—</div>
+              <div style="font-size:.68rem;color:var(--text-dim)" id="lb-in-level">—</div>
+            </div>
+            <span style="font-size:.7rem;color:#10b981;font-weight:700;white-space:nowrap">🔒 Secured</span>
+            <button class="btn-sm btn-danger" onclick="resetProfile()" title="Reset profile">✕</button>
+          </div>
+        </div>
+
         <div id="lb-list"></div>
       </div>
 
@@ -348,13 +374,13 @@ tbody tr:hover .row-actions{opacity:1}
         <div class="card-title">📡 Live Sync</div>
         <div class="sync-row">
           <span class="sync-dot" id="sync-dot-status" style="background:var(--text-dim)"></span>
-          <span id="sync-status-label" style="flex:1">Not connected</span>
+          <span id="sync-status-label" style="flex:1">Not registered</span>
           <button class="btn-sm btn-accent" onclick="syncToSupabase(true)">⟳ Sync Now</button>
         </div>
         <div class="sync-row" id="sync-last-row" style="display:none">
           <span style="color:var(--text-dim);font-size:.72rem" id="sync-last-time"></span>
         </div>
-        <p style="font-size:.75rem;color:var(--text-dim);margin-top:.75rem">Your stats sync automatically after every log. Anyone with this file and the same Supabase project sees the live leaderboard.</p>
+        <p style="font-size:.75rem;color:var(--text-dim);margin-top:.75rem">Stats sync automatically after every log. Anyone with this file sees the live leaderboard instantly.</p>
       </div>
     </div>
 
@@ -482,7 +508,8 @@ const LEVELS = [
 const DEFAULT_STATE = {
   logs: {},
   friends: [],
-  playerName: 'Adventurer',
+  playerName: '',
+  playerPinHash: '',
   settings: {
     sound: true,
     confetti: true,
@@ -498,10 +525,11 @@ function loadState() {
     const raw = localStorage.getItem('fittracker_v3');
     if (raw) {
       const d = JSON.parse(raw);
-      S.logs        = d.logs        || {};
-      S.friends     = d.friends     || [];
-      S.playerName  = d.playerName  || 'Adventurer';
-      S.settings    = Object.assign({}, DEFAULT_STATE.settings, d.settings || {});
+      S.logs          = d.logs          || {};
+      S.friends       = d.friends       || [];
+      S.playerName    = d.playerName    || '';
+      S.playerPinHash = d.playerPinHash || '';
+      S.settings      = Object.assign({}, DEFAULT_STATE.settings, d.settings || {});
       S.settings.goals = Object.assign({}, DEFAULT_STATE.settings.goals, (d.settings || {}).goals || {});
     }
   } catch(e) { console.warn('FitTracker load error', e); }
@@ -613,7 +641,7 @@ function updateAll() {
   renderLeaderboard();
   renderDebugList();
   updateWeightLabel();
-  refreshMyCode();
+  updateProfileUI();
 }
 
 function renderTodayProgress() {
@@ -886,41 +914,51 @@ function loadSettingsUI() {
 
 function fullReset() {
   if (!confirm('Reset ALL data? This cannot be undone.')) return;
-  S.logs = {}; S.friends = []; S.playerName = 'Adventurer';
+  S.logs = {}; S.friends = []; S.playerName = ''; S.playerPinHash = '';
   saveState();
-  document.getElementById('player-name-inp').value = S.playerName;
   toast('All data reset', 'info');
   updateAll();
+  updateProfileUI();
+  setSyncStatus('offline', 'Not registered');
 }
 
 // ══════════════════════════════════════════
 // SUPABASE — LIVE LEADERBOARD
 // ══════════════════════════════════════════
 
-const SB_URL  = 'https://qxsxelucvxmdntfhmgzp.supabase.co';
-const SB_KEY  = 'sb_publishable_3vCRPjFzDiuXFVnFjIhbaw_4O__O_hn';
-const db      = supabase.createClient(SB_URL, SB_KEY);
+const SB_URL = 'https://qxsxelucvxmdntfhmgzp.supabase.co';
+const SB_KEY = 'sb_publishable_3vCRPjFzDiuXFVnFjIhbaw_4O__O_hn';
+const db     = supabase.createClient(SB_URL, SB_KEY);
 
-let lbData      = [];   // live rows from Supabase
-let lbChannel   = null;
+let lbData       = [];
+let lbChannel    = null;
 let lastSyncTime = null;
 
-function setSyncStatus(state, label) {
-  const dot  = document.getElementById('sync-dot-status');
-  const lbl  = document.getElementById('sync-status-label');
-  const ldot = document.getElementById('lb-dot');
-  const ltxt = document.getElementById('lb-status-text');
-  if (!dot) return;
-  dot.className  = `sync-dot ${state}`;
-  ldot.className = `sync-dot ${state}`;
-  lbl.textContent  = label;
-  ltxt.textContent = label;
-  ltxt.style.color = state==='live' ? '#10b981' : state==='syncing' ? '#f59e0b' : 'var(--text-dim)';
+// ── PIN hashing (SHA-256 via Web Crypto) ──
+async function hashPin(pin) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(pin));
+  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
 }
 
+// ── Sync status indicator ──
+function setSyncStatus(state, label) {
+  ['sync-dot-status','lb-dot'].forEach(id=>{
+    const el = document.getElementById(id);
+    if (el) el.className = `sync-dot ${state}`;
+  });
+  const lbl = document.getElementById('sync-status-label');
+  const ltxt = document.getElementById('lb-status-text');
+  if (lbl) lbl.textContent = label;
+  if (ltxt) {
+    ltxt.textContent = label;
+    ltxt.style.color = state==='live' ? '#10b981' : state==='syncing' ? '#f59e0b' : 'var(--text-dim)';
+  }
+}
+
+// ── Fetch leaderboard ──
 async function fetchLeaderboard() {
   try {
-    const { data, error } = await db.from('leaderboard').select('*').order('xp', { ascending: false });
+    const { data, error } = await db.from('leaderboard').select('*').order('xp', { ascending:false });
     if (error) throw error;
     lbData = data || [];
     renderLeaderboard();
@@ -930,9 +968,21 @@ async function fetchLeaderboard() {
   }
 }
 
+// ── Real-time subscription ──
+function subscribeLeaderboard() {
+  if (lbChannel) db.removeChannel(lbChannel);
+  lbChannel = db.channel('lb-rt')
+    .on('postgres_changes', { event:'*', schema:'public', table:'leaderboard' }, ()=>fetchLeaderboard())
+    .subscribe(s=>{
+      if (s==='SUBSCRIBED') setSyncStatus('live','Live');
+      if (s==='CLOSED'||s==='CHANNEL_ERROR') setSyncStatus('offline','Offline');
+    });
+}
+
+// ── Secure upsert via PIN-protected RPC ──
 async function syncToSupabase(manual=false) {
-  if (!S.playerName || S.playerName === 'Adventurer') {
-    if (manual) toast('Set your name on the Board tab first', 'error');
+  if (!S.playerName || !S.playerPinHash) {
+    if (manual) toast('Register on the Board tab first', 'error');
     return;
   }
   const xp   = totalXP();
@@ -940,40 +990,103 @@ async function syncToSupabase(manual=false) {
   const str  = calcStreak();
   setSyncStatus('syncing', 'Syncing…');
   try {
-    const { error } = await db.from('leaderboard').upsert({
-      name:       S.playerName,
-      emoji:      info.level.emoji,
-      level_idx:  info.idx,
-      xp,
-      streak:     str,
-      updated_at: new Date().toISOString()
-    }, { onConflict: 'name' });
+    const { data, error } = await db.rpc('upsert_player', {
+      p_name:      S.playerName,
+      p_pin_hash:  S.playerPinHash,
+      p_emoji:     info.level.emoji,
+      p_level_idx: info.idx,
+      p_xp:        xp,
+      p_streak:    str
+    });
     if (error) throw error;
-    lastSyncTime = new Date();
-    const el = document.getElementById('sync-last-row');
-    const t  = document.getElementById('sync-last-time');
-    if (el && t) {
-      el.style.display = '';
-      t.textContent = `Last synced: ${lastSyncTime.toLocaleTimeString()}`;
+    if (data?.error === 'wrong_pin') {
+      setSyncStatus('offline', 'PIN error');
+      toast('PIN mismatch — someone may have taken your name', 'error');
+      return;
     }
+    if (data?.error === 'xp_too_large') {
+      setSyncStatus('offline', 'Blocked');
+      toast('XP gain blocked by server (too large)', 'error');
+      return;
+    }
+    // xp_decrease is silently ignored (can happen when editing old days down)
+    lastSyncTime = new Date();
+    const lr = document.getElementById('sync-last-row');
+    const lt = document.getElementById('sync-last-time');
+    if (lr && lt) { lr.style.display=''; lt.textContent=`Last synced: ${lastSyncTime.toLocaleTimeString()}`; }
     setSyncStatus('live', 'Live');
     if (manual) toast('Synced! ✓', 'success');
+    fetchLeaderboard();
   } catch(e) {
     setSyncStatus('offline', 'Offline');
     if (manual) toast('Sync failed — check connection', 'error');
   }
 }
 
-function subscribeLeaderboard() {
-  if (lbChannel) db.removeChannel(lbChannel);
-  lbChannel = db.channel('lb-realtime')
-    .on('postgres_changes', { event:'*', schema:'public', table:'leaderboard' }, ()=>{
-      fetchLeaderboard();
-    })
-    .subscribe(status => {
-      if (status === 'SUBSCRIBED') setSyncStatus('live', 'Live');
-      if (status === 'CLOSED' || status === 'CHANNEL_ERROR') setSyncStatus('offline', 'Offline');
+// ── Registration ──
+async function registerProfile() {
+  const name = document.getElementById('reg-name').value.trim();
+  const pin  = document.getElementById('reg-pin').value;
+  if (!name)         { toast('Enter a name', 'error'); return; }
+  if (pin.length<4)  { toast('PIN must be at least 4 characters', 'error'); return; }
+
+  const btn = document.getElementById('reg-btn');
+  btn.disabled = true; btn.textContent = 'Registering…';
+
+  const pinHash = await hashPin(pin);
+  const xp      = totalXP();
+  const info    = getLevelInfo(xp);
+
+  try {
+    const { data, error } = await db.rpc('upsert_player', {
+      p_name:      name,
+      p_pin_hash:  pinHash,
+      p_emoji:     info.level.emoji,
+      p_level_idx: info.idx,
+      p_xp:        xp,
+      p_streak:    calcStreak()
     });
+    if (error) throw error;
+    if (data?.error === 'wrong_pin') {
+      toast('That name is already taken — choose another', 'error');
+      btn.disabled=false; btn.textContent='⚔️ Join Leaderboard';
+      return;
+    }
+    S.playerName    = name;
+    S.playerPinHash = pinHash;
+    saveState();
+    updateProfileUI();
+    fetchLeaderboard();
+    toast(`Welcome, ${name}! 🎉`, 'success');
+  } catch(e) {
+    toast('Registration failed — check connection', 'error');
+  }
+  btn.disabled=false; btn.textContent='⚔️ Join Leaderboard';
+}
+
+// ── Reset profile (clears local identity) ──
+function resetProfile() {
+  if (!confirm('Reset profile? Your leaderboard entry stays but you\'ll need to re-register to update it.')) return;
+  S.playerName    = '';
+  S.playerPinHash = '';
+  saveState();
+  updateProfileUI();
+  setSyncStatus('offline', 'Not registered');
+  toast('Profile reset', 'info');
+}
+
+// ── Update the profile section UI ──
+function updateProfileUI() {
+  const registered = !!(S.playerName && S.playerPinHash);
+  document.getElementById('lb-reg-panel').style.display = registered ? 'none' : '';
+  document.getElementById('lb-in-panel').style.display  = registered ? ''     : 'none';
+  if (registered) {
+    const xp   = totalXP();
+    const info = getLevelInfo(xp);
+    document.getElementById('lb-in-emoji').textContent = info.level.emoji;
+    document.getElementById('lb-in-name').textContent  = S.playerName;
+    document.getElementById('lb-in-level').textContent = `Lv.${info.idx+1} ${info.level.name} · ${xp} XP`;
+  }
 }
 
 // ══════════════════════════════════════════
@@ -1152,22 +1265,13 @@ document.getElementById('export-csv-btn').addEventListener('click',()=>{
   toast('CSV exported! 📊','success');
 });
 
-document.getElementById('player-name-inp').addEventListener('input', function() {
-  S.playerName = this.value || 'Adventurer';
-  saveState();
-});
-
-document.getElementById('player-name-inp').addEventListener('change', function() {
-  if (S.playerName && S.playerName !== 'Adventurer') syncToSupabase();
-});
-
 loadState();
 loadSettingsUI();
-document.getElementById('player-name-inp').value = S.playerName;
 updateAll();
+updateProfileUI();
 fetchLeaderboard();
 subscribeLeaderboard();
-syncToSupabase();
+if (S.playerPinHash) syncToSupabase();
 </script>
 </body>
 </html>
