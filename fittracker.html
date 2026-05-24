@@ -191,6 +191,15 @@ tbody tr:hover .row-actions{opacity:1}
 .lu-btn{margin-top:1.5rem;padding:.65rem 2.2rem;background:linear-gradient(135deg,#7c3aed,#4f46e5);border:none;border-radius:8px;color:#fff;font-weight:800;cursor:pointer;font-size:.875rem;text-transform:uppercase;letter-spacing:1px;box-shadow:0 4px 16px rgba(124,58,237,.4)}
 .lu-btn:hover{transform:translateY(-1px);box-shadow:0 6px 20px rgba(124,58,237,.6)}
 
+/* ─── FLOATING XP ─── */
+.float-xp{position:fixed;pointer-events:none;z-index:9999;font-size:1.4rem;font-weight:900;color:#a78bfa;text-shadow:0 0 12px rgba(124,58,237,.8);animation:floatUp .9s ease-out forwards}
+@keyframes floatUp{0%{opacity:1;transform:translateY(0) scale(1)}60%{opacity:1;transform:translateY(-48px) scale(1.15)}100%{opacity:0;transform:translateY(-80px) scale(.9)}}
+/* ─── XP BAR PULSE ─── */
+@keyframes xpPulse{0%{box-shadow:none}50%{box-shadow:0 0 16px rgba(124,58,237,.9),0 0 32px rgba(6,182,212,.5)}100%{box-shadow:none}}
+.xp-pulse{animation:xpPulse .7s ease-out}
+/* ─── SCREEN FLASH ─── */
+#screen-flash{position:fixed;inset:0;pointer-events:none;z-index:9997;background:rgba(124,58,237,.12);opacity:0;transition:opacity .08s}
+#screen-flash.flash{opacity:1}
 /* ─── MISC ─── */
 .empty-state{text-align:center;padding:2.5rem 1rem;color:var(--text-dim);font-size:.85rem}
 .empty-state-emoji{font-size:2.5rem;display:block;margin-bottom:.75rem;opacity:.45}
@@ -431,6 +440,7 @@ tbody tr:hover .row-actions{opacity:1}
 </div>
 
 <div id="toast-container"></div>
+<div id="screen-flash"></div>
 
 <div id="lu-overlay">
   <div class="lu-card">
@@ -781,9 +791,17 @@ function logActivity() {
   ['inp-workout','inp-protein','inp-steps','inp-weight'].forEach(id=>{ document.getElementById(id).value=''; });
 
   const gained = totalXP() - prevXP;
+  const btn = document.getElementById('log-btn');
+
   playChime();
-  if (gained > 0) toast(`+${gained} XP earned! 🔥`, 'success');
-  else toast('Activity logged! ⚡', 'success');
+  flashScreen();
+  if (gained > 0) {
+    floatXP(gained, btn);
+    pulseXPBar();
+    toast(`+${gained} XP earned! 🔥`, 'success');
+  } else {
+    toast('Activity logged! ⚡', 'success');
+  }
 
   const newLvl = getLevelInfo(totalXP()).idx;
   if (newLvl > prevLvl) setTimeout(()=>showLevelUp(getLevelInfo(totalXP())), 700);
@@ -890,9 +908,28 @@ function refreshMyCode() {
 
 function copyMyCode() {
   const code = genMyCode();
-  navigator.clipboard.writeText(code)
-    .then(()=>toast('Code copied to clipboard! 📋','success'))
-    .catch(()=>toast('Select and copy the code manually','info'));
+  if (navigator.clipboard && window.isSecureContext) {
+    navigator.clipboard.writeText(code)
+      .then(()=>toast('Code copied! 📋','success'))
+      .catch(()=>fallbackCopy(code));
+  } else {
+    fallbackCopy(code);
+  }
+}
+
+function fallbackCopy(text) {
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.cssText = 'position:fixed;top:0;left:0;width:2px;height:2px;opacity:0';
+  document.body.appendChild(ta);
+  ta.focus(); ta.select();
+  try {
+    document.execCommand('copy');
+    toast('Code copied! 📋','success');
+  } catch(e) {
+    toast('Code is selected — press Ctrl+C to copy','info');
+  }
+  document.body.removeChild(ta);
 }
 
 function importFriend() {
@@ -958,14 +995,43 @@ function getACtx() {
 function playTone(freq, start, dur, type='sine', vol=0.18) {
   try {
     const ctx = getACtx();
+    if (ctx.state === 'suspended') ctx.resume();
     const o = ctx.createOscillator(), g = ctx.createGain();
     o.connect(g); g.connect(ctx.destination);
     o.type = type; o.frequency.value = freq;
-    g.gain.setValueAtTime(0, start);
-    g.gain.linearRampToValueAtTime(vol, start+0.04);
-    g.gain.exponentialRampToValueAtTime(0.001, start+dur);
-    o.start(start); o.stop(start+dur);
+    const t = Math.max(start, ctx.currentTime);
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(vol, t+0.04);
+    g.gain.exponentialRampToValueAtTime(0.001, t+dur);
+    o.start(t); o.stop(t+dur);
   } catch(e) {}
+}
+
+// ── VFX helpers ──
+
+function flashScreen() {
+  const el = document.getElementById('screen-flash');
+  el.classList.add('flash');
+  setTimeout(()=>el.classList.remove('flash'), 120);
+}
+
+function floatXP(gained, anchorEl) {
+  const rect = anchorEl.getBoundingClientRect();
+  const el   = document.createElement('div');
+  el.className = 'float-xp';
+  el.textContent = `+${gained} XP`;
+  el.style.left  = (rect.left + rect.width/2 - 30) + 'px';
+  el.style.top   = (rect.top - 10) + 'px';
+  document.body.appendChild(el);
+  setTimeout(()=>el.remove(), 950);
+}
+
+function pulseXPBar() {
+  const bar = document.getElementById('lc-xp-bar');
+  bar.classList.remove('xp-pulse');
+  void bar.offsetWidth; // reflow to restart animation
+  bar.classList.add('xp-pulse');
+  setTimeout(()=>bar.classList.remove('xp-pulse'), 750);
 }
 
 function playChime() {
