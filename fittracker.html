@@ -209,6 +209,9 @@ tbody tr:hover .row-actions{opacity:1}
 /* ─── SCREEN FLASH ─── */
 #screen-flash{position:fixed;inset:0;pointer-events:none;z-index:9997;background:rgba(124,58,237,.12);opacity:0;transition:opacity .08s}
 #screen-flash.flash{opacity:1}
+/* ─── INPUT INVALID ─── */
+@keyframes inputShake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-5px)}40%,80%{transform:translateX(5px)}}
+.input-invalid{border-color:#ef4444!important;box-shadow:0 0 0 3px rgba(239,68,68,.2)!important;animation:inputShake .35s ease}
 /* ─── MISC ─── */
 .empty-state{text-align:center;padding:2.5rem 1rem;color:var(--text-dim);font-size:.85rem}
 .empty-state-emoji{font-size:2.5rem;display:block;margin-bottom:.75rem;opacity:.45}
@@ -797,23 +800,62 @@ function renderDebugList() {
 // LOGGING
 // ══════════════════════════════════════════
 
+function markInvalid(id) {
+  const el = document.getElementById(id);
+  el.classList.remove('input-invalid');
+  void el.offsetWidth; // reflow to restart animation
+  el.classList.add('input-invalid');
+  setTimeout(()=>el.classList.remove('input-invalid'), 600);
+}
+
 function logActivity() {
-  const wo  = clamp(parseInt(document.getElementById('inp-workout').value)||0, 0, 120);
-  const pr  = clamp(parseInt(document.getElementById('inp-protein').value)||0, 0, 300);
-  const st  = clamp(parseInt(document.getElementById('inp-steps').value)||0, 0, 20000);
+  const wo  = parseInt(document.getElementById('inp-workout').value)||0;
+  const pr  = parseInt(document.getElementById('inp-protein').value)||0;
+  const st  = parseInt(document.getElementById('inp-steps').value)||0;
   const wt  = Math.max(0, parseInt(document.getElementById('inp-weight').value)||0);
 
   if (!wo && !pr && !st && !wt) { toast('Enter at least one value', 'error'); return; }
 
-  const today    = getToday();
-  const prevXP   = totalXP();
-  const prevLvl  = getLevelInfo(prevXP).idx;
-  const existing = S.logs[today];
+  // Check raw input caps
+  if (wo > 120) { markInvalid('inp-workout'); toast('Max 120 min per log', 'error'); return; }
+  if (pr > 300) { markInvalid('inp-protein'); toast('Max 300g per log', 'error'); return; }
+  if (st > 20000) { markInvalid('inp-steps'); toast('Max 20,000 steps per log', 'error'); return; }
 
-  const newWo = clamp((existing?.workout||0)+wo, 0, 120);
-  const newPr = clamp((existing?.protein||0)+pr, 0, 300);
-  const newSt = clamp((existing?.steps||0)+st,   0, 20000);
-  const newWt = wt || existing?.weight || 0;
+  // Check daily totals
+  const today    = getToday();
+  const existing = S.logs[today] || {};
+  const invalid  = [];
+
+  const remWo = 120   - (existing.workout||0);
+  const remPr = 300   - (existing.protein||0);
+  const remSt = 20000 - (existing.steps||0);
+
+  if (wo > 0 && wo > remWo) {
+    markInvalid('inp-workout');
+    invalid.push(remWo > 0 ? `${remWo} workout min left today` : 'daily workout limit reached');
+  }
+  if (pr > 0 && pr > remPr) {
+    markInvalid('inp-protein');
+    invalid.push(remPr > 0 ? `${remPr}g protein left today` : 'daily protein limit reached');
+  }
+  if (st > 0 && st > remSt) {
+    markInvalid('inp-steps');
+    invalid.push(remSt > 0 ? `${remSt.toLocaleString()} steps left today` : 'daily steps limit reached');
+  }
+
+  if (invalid.length) {
+    playErrorSound();
+    toast('⛔ Invalid: ' + invalid.join(' · '), 'error');
+    return;
+  }
+
+  const prevXP  = totalXP();
+  const prevLvl = getLevelInfo(prevXP).idx;
+
+  const newWo = (existing.workout||0) + wo;
+  const newPr = (existing.protein||0) + pr;
+  const newSt = (existing.steps||0)   + st;
+  const newWt = wt || existing.weight || 0;
 
   S.logs[today] = { workout:newWo, protein:newPr, steps:newSt, weight:newWt, xp:calcXP(newWo,newPr,newSt) };
 
@@ -821,7 +863,7 @@ function logActivity() {
   ['inp-workout','inp-protein','inp-steps','inp-weight'].forEach(id=>{ document.getElementById(id).value=''; });
 
   const gained = totalXP() - prevXP;
-  const btn = document.getElementById('log-btn');
+  const btn    = document.getElementById('log-btn');
 
   playChime();
   flashScreen();
@@ -830,13 +872,12 @@ function logActivity() {
     pulseXPBar();
     toast(`+${gained} XP earned! 🔥`, 'success');
   } else {
-    toast('Activity logged! ⚡', 'success');
+    toast('Bodyweight logged! ⚡', 'success');
   }
 
   const newLvl = getLevelInfo(totalXP()).idx;
   if (newLvl > prevLvl) setTimeout(()=>showLevelUp(getLevelInfo(totalXP())), 700);
   syncToSupabase();
-
   updateAll();
 }
 
@@ -1157,6 +1198,24 @@ function playLevelUpSound() {
   } catch(e) {}
 }
 
+function playTabClick() {
+  if (!S.settings.sound) return;
+  try {
+    const ctx = getACtx(), t = ctx.currentTime;
+    playTone(600, t, 0.07, 'sine', 0.07);
+    playTone(900, t + 0.03, 0.06, 'sine', 0.04);
+  } catch(e) {}
+}
+
+function playErrorSound() {
+  if (!S.settings.sound) return;
+  try {
+    const ctx = getACtx(), t = ctx.currentTime;
+    playTone(220, t,       0.12, 'sawtooth', 0.15);
+    playTone(180, t+0.1,   0.18, 'sawtooth', 0.12);
+  } catch(e) {}
+}
+
 // ══════════════════════════════════════════
 // CONFETTI
 // ══════════════════════════════════════════
@@ -1210,6 +1269,7 @@ function toast(msg, type='info') {
 function switchTab(tab) {
   document.querySelectorAll('.tab-btn').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));
   document.querySelectorAll('.tab-content').forEach(c=>c.classList.toggle('active',c.id===`tab-${tab}`));
+  playTabClick();
   if (tab==='leaderboard') fetchLeaderboard();
 }
 
