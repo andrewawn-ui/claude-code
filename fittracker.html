@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>FitTracker ⚔️</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -191,6 +192,14 @@ tbody tr:hover .row-actions{opacity:1}
 .lu-btn{margin-top:1.5rem;padding:.65rem 2.2rem;background:linear-gradient(135deg,#7c3aed,#4f46e5);border:none;border-radius:8px;color:#fff;font-weight:800;cursor:pointer;font-size:.875rem;text-transform:uppercase;letter-spacing:1px;box-shadow:0 4px 16px rgba(124,58,237,.4)}
 .lu-btn:hover{transform:translateY(-1px);box-shadow:0 6px 20px rgba(124,58,237,.6)}
 
+/* ─── SYNC STATUS ─── */
+.sync-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:.4rem;flex-shrink:0}
+.sync-dot.live{background:#10b981;box-shadow:0 0 6px #10b981}
+.sync-dot.offline{background:#ef4444}
+.sync-dot.syncing{background:#f59e0b;animation:syncPulse .8s ease-in-out infinite}
+@keyframes syncPulse{0%,100%{opacity:1}50%{opacity:.3}}
+.sync-row{display:flex;align-items:center;font-size:.8rem;color:var(--text-secondary);padding:.5rem 0;border-bottom:1px solid var(--border)}
+.sync-row:last-child{border-bottom:none}
 /* ─── FLOATING XP ─── */
 .float-xp{position:fixed;pointer-events:none;z-index:9999;font-size:1.4rem;font-weight:900;color:#a78bfa;text-shadow:0 0 12px rgba(124,58,237,.8);animation:floatUp .9s ease-out forwards}
 @keyframes floatUp{0%{opacity:1;transform:translateY(0) scale(1)}60%{opacity:1;transform:translateY(-48px) scale(1.15)}100%{opacity:0;transform:translateY(-80px) scale(.9)}}
@@ -321,7 +330,13 @@ tbody tr:hover .row-actions{opacity:1}
     <!-- ══ LEADERBOARD TAB ══ -->
     <div class="tab-content" id="tab-leaderboard">
       <div class="card">
-        <div class="card-title">🏆 Global Rankings</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+          <div class="card-title" style="margin-bottom:0">🏆 Global Rankings</div>
+          <div style="display:flex;align-items:center;gap:.4rem;font-size:.72rem" id="lb-status-badge">
+            <span class="sync-dot offline" id="lb-dot"></span>
+            <span id="lb-status-text" style="color:var(--text-dim)">Connecting…</span>
+          </div>
+        </div>
         <div style="display:flex;align-items:center;gap:.6rem;margin-bottom:1rem;padding-bottom:.75rem;border-bottom:1px solid var(--border)">
           <span style="font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text-dim);white-space:nowrap">Your Name</span>
           <input type="text" id="player-name-inp" class="player-name-input" placeholder="Enter your name…" maxlength="20">
@@ -330,28 +345,16 @@ tbody tr:hover .row-actions{opacity:1}
       </div>
 
       <div class="card">
-        <div class="card-title">🤝 Multiplayer — Share & Compete</div>
-        <div class="share-tabs">
-          <button class="share-tab-btn active" id="stab-export" onclick="switchShareTab('export')">My Code</button>
-          <button class="share-tab-btn" id="stab-import" onclick="switchShareTab('import')">Add Friend</button>
-          <button class="share-tab-btn" id="stab-manage" onclick="switchShareTab('manage')">Friends</button>
+        <div class="card-title">📡 Live Sync</div>
+        <div class="sync-row">
+          <span class="sync-dot" id="sync-dot-status" style="background:var(--text-dim)"></span>
+          <span id="sync-status-label" style="flex:1">Not connected</span>
+          <button class="btn-sm btn-accent" onclick="syncToSupabase(true)">⟳ Sync Now</button>
         </div>
-
-        <div id="sp-export">
-          <p style="font-size:.8rem;color:var(--text-secondary);margin-bottom:.75rem">Share this code with friends — they paste it to add you to their leaderboard. Updates when you regenerate it.</p>
-          <div class="friend-code-box" id="my-code-box" onclick="copyMyCode()">Generating…</div>
-          <button class="btn-sm btn-success" style="margin-top:.5rem;width:100%" onclick="copyMyCode()">📋 Copy Code</button>
+        <div class="sync-row" id="sync-last-row" style="display:none">
+          <span style="color:var(--text-dim);font-size:.72rem" id="sync-last-time"></span>
         </div>
-
-        <div id="sp-import" style="display:none">
-          <p style="font-size:.8rem;color:var(--text-secondary);margin-bottom:.75rem">Paste a friend's code to add them to your leaderboard.</p>
-          <textarea id="import-code-inp" class="form-input" rows="4" placeholder="Paste friend code here…" style="resize:vertical;font-family:monospace;font-size:.72rem"></textarea>
-          <button class="btn-sm btn-success" style="margin-top:.5rem;width:100%" onclick="importFriend()">➕ Add Friend</button>
-        </div>
-
-        <div id="sp-manage" style="display:none">
-          <div id="friends-list"></div>
-        </div>
+        <p style="font-size:.75rem;color:var(--text-dim);margin-top:.75rem">Your stats sync automatically after every log. Anyone with this file and the same Supabase project sees the live leaderboard.</p>
       </div>
     </div>
 
@@ -716,37 +719,36 @@ function renderLevels() {
 }
 
 function renderLeaderboard() {
-  const myXP   = totalXP();
-  const myInfo = getLevelInfo(myXP);
-  const myStr  = calcStreak();
-
-  const players = [
-    { name: S.playerName||'You', emoji: myInfo.level.emoji, levelIdx: myInfo.idx, xp: myXP, streak: myStr, isYou: true },
-    ...S.friends.map(f => ({ ...f, isYou: false }))
-  ].sort((a,b)=>b.xp-a.xp);
-
   const el = document.getElementById('lb-list');
-  el.innerHTML = players.map((p,i)=>{
-    const rank = i+1;
+  if (!el) return;
+
+  if (!lbData.length) {
+    el.innerHTML = '<div class="empty-state"><span class="empty-state-emoji">🏆</span>No players yet — log an activity to appear!</div>';
+    return;
+  }
+
+  el.innerHTML = lbData.map((p,i)=>{
+    const rank    = i+1;
+    const isYou   = p.name === S.playerName;
     const rankHtml = rank===1 ? `<span class="lb-rank gold">🥇</span>`
                    : rank===2 ? `<span class="lb-rank silver">🥈</span>`
                    : rank===3 ? `<span class="lb-rank bronze">🥉</span>`
                    : `<span class="lb-rank other">#${rank}</span>`;
     const rankCls = rank<=3 ? `rank-${rank}` : '';
-    const lv = LEVELS[Math.min(p.levelIdx, LEVELS.length-1)] || LEVELS[0];
-    return `<div class="lb-entry ${p.isYou?'is-you':''} ${rankCls}">
+    const lv = LEVELS[Math.min(p.level_idx||0, LEVELS.length-1)] || LEVELS[0];
+    return `<div class="lb-entry ${isYou?'is-you':''} ${rankCls}">
       ${rankHtml}
-      <div class="lb-emoji">${p.emoji}</div>
+      <div class="lb-emoji">${p.emoji||'👤'}</div>
       <div class="lb-info">
-        <div class="lb-name">${escHtml(p.name)} ${p.isYou?'<span style="font-size:.6rem;color:var(--text-dim)">(you)</span>':''}</div>
-        <div class="lb-lv">Lv.${p.levelIdx+1} ${lv.name}</div>
+        <div class="lb-name">${escHtml(p.name)} ${isYou?'<span style="font-size:.6rem;color:var(--text-dim)">(you)</span>':''}</div>
+        <div class="lb-lv">Lv.${(p.level_idx||0)+1} ${lv.name}</div>
       </div>
       <div style="text-align:right">
-        <div class="lb-xp">${p.xp.toLocaleString()} XP</div>
-        <div class="lb-streak">🔥 ${p.streak}d</div>
+        <div class="lb-xp">${(p.xp||0).toLocaleString()} XP</div>
+        <div class="lb-streak">🔥 ${p.streak||0}d</div>
       </div>
     </div>`;
-  }).join('') + (players.length===1 ? '<div class="empty-state" style="margin-top:.75rem"><span class="empty-state-emoji">🤝</span>Add friends via the Multiplayer section below!</div>' : '');
+  }).join('');
 }
 
 function renderDebugList() {
@@ -805,6 +807,7 @@ function logActivity() {
 
   const newLvl = getLevelInfo(totalXP()).idx;
   if (newLvl > prevLvl) setTimeout(()=>showLevelUp(getLevelInfo(totalXP())), 700);
+  syncToSupabase();
 
   updateAll();
 }
@@ -891,96 +894,86 @@ function fullReset() {
 }
 
 // ══════════════════════════════════════════
-// MULTIPLAYER / FRIEND CODES
+// SUPABASE — LIVE LEADERBOARD
 // ══════════════════════════════════════════
 
-function genMyCode() {
+const SB_URL  = 'https://qxsxelucvxmdntfhmgzp.supabase.co';
+const SB_KEY  = 'sb_publishable_3vCRPjFzDiuXFVnFjIhbaw_4O__O_hn';
+const db      = supabase.createClient(SB_URL, SB_KEY);
+
+let lbData      = [];   // live rows from Supabase
+let lbChannel   = null;
+let lastSyncTime = null;
+
+function setSyncStatus(state, label) {
+  const dot  = document.getElementById('sync-dot-status');
+  const lbl  = document.getElementById('sync-status-label');
+  const ldot = document.getElementById('lb-dot');
+  const ltxt = document.getElementById('lb-status-text');
+  if (!dot) return;
+  dot.className  = `sync-dot ${state}`;
+  ldot.className = `sync-dot ${state}`;
+  lbl.textContent  = label;
+  ltxt.textContent = label;
+  ltxt.style.color = state==='live' ? '#10b981' : state==='syncing' ? '#f59e0b' : 'var(--text-dim)';
+}
+
+async function fetchLeaderboard() {
+  try {
+    const { data, error } = await db.from('leaderboard').select('*').order('xp', { ascending: false });
+    if (error) throw error;
+    lbData = data || [];
+    renderLeaderboard();
+    setSyncStatus('live', 'Live');
+  } catch(e) {
+    setSyncStatus('offline', 'Offline');
+  }
+}
+
+async function syncToSupabase(manual=false) {
+  if (!S.playerName || S.playerName === 'Adventurer') {
+    if (manual) toast('Set your name on the Board tab first', 'error');
+    return;
+  }
   const xp   = totalXP();
   const info = getLevelInfo(xp);
   const str  = calcStreak();
-  const json = JSON.stringify({ v:1, name:S.playerName||'Anonymous', emoji:info.level.emoji, levelIdx:info.idx, xp, streak:str, updated:getToday() });
-  return btoa(unescape(encodeURIComponent(json)));
-}
-
-function refreshMyCode() {
-  const el = document.getElementById('my-code-box');
-  if (el) el.textContent = genMyCode();
-}
-
-function copyMyCode() {
-  const code = genMyCode();
-  if (navigator.clipboard && window.isSecureContext) {
-    navigator.clipboard.writeText(code)
-      .then(()=>toast('Code copied! 📋','success'))
-      .catch(()=>fallbackCopy(code));
-  } else {
-    fallbackCopy(code);
-  }
-}
-
-function fallbackCopy(text) {
-  const ta = document.createElement('textarea');
-  ta.value = text;
-  ta.style.cssText = 'position:fixed;top:0;left:0;width:2px;height:2px;opacity:0';
-  document.body.appendChild(ta);
-  ta.focus(); ta.select();
+  setSyncStatus('syncing', 'Syncing…');
   try {
-    document.execCommand('copy');
-    toast('Code copied! 📋','success');
+    const { error } = await db.from('leaderboard').upsert({
+      name:       S.playerName,
+      emoji:      info.level.emoji,
+      level_idx:  info.idx,
+      xp,
+      streak:     str,
+      updated_at: new Date().toISOString()
+    }, { onConflict: 'name' });
+    if (error) throw error;
+    lastSyncTime = new Date();
+    const el = document.getElementById('sync-last-row');
+    const t  = document.getElementById('sync-last-time');
+    if (el && t) {
+      el.style.display = '';
+      t.textContent = `Last synced: ${lastSyncTime.toLocaleTimeString()}`;
+    }
+    setSyncStatus('live', 'Live');
+    if (manual) toast('Synced! ✓', 'success');
   } catch(e) {
-    toast('Code is selected — press Ctrl+C to copy','info');
+    setSyncStatus('offline', 'Offline');
+    if (manual) toast('Sync failed — check connection', 'error');
   }
-  document.body.removeChild(ta);
 }
 
-function importFriend() {
-  const raw = document.getElementById('import-code-inp').value.trim();
-  if (!raw) { toast('Paste a friend code first','error'); return; }
-  try {
-    const d = JSON.parse(decodeURIComponent(escape(atob(raw))));
-    if (!d.name || d.xp===undefined) throw 0;
-    const idx = S.friends.findIndex(f=>f.name===d.name);
-    const entry = { name:d.name, emoji:d.emoji||'👤', levelIdx:d.levelIdx||0, xp:d.xp, streak:d.streak||0, updated:d.updated||'?' };
-    if (idx>=0) { S.friends[idx]=entry; toast(`Updated ${d.name}'s stats! 🔄`,'info'); }
-    else { S.friends.push(entry); toast(`${d.name} added to leaderboard! 🎉`,'success'); }
-    document.getElementById('import-code-inp').value='';
-    saveState(); renderLeaderboard(); renderFriendsList();
-  } catch(e) { toast('Invalid friend code','error'); }
-}
-
-function removeFriend(name) {
-  S.friends = S.friends.filter(f=>f.name!==name);
-  saveState(); renderLeaderboard(); renderFriendsList();
-  toast(`Removed ${name}`,'info');
-}
-
-function renderFriendsList() {
-  const el = document.getElementById('friends-list');
-  if (!S.friends.length) {
-    el.innerHTML='<div class="empty-state"><span class="empty-state-emoji">🤷</span>No friends added yet</div>';
-    return;
-  }
-  el.innerHTML = S.friends.map(f=>`
-    <div style="display:flex;align-items:center;gap:.75rem;padding:.6rem 0;border-bottom:1px solid var(--border)">
-      <span style="font-size:1.2rem">${f.emoji}</span>
-      <div style="flex:1">
-        <div style="font-weight:700;font-size:.875rem">${escHtml(f.name)}</div>
-        <div style="font-size:.68rem;color:var(--text-dim)">${f.xp} XP · Updated: ${f.updated||'?'}</div>
-      </div>
-      <button class="btn-sm btn-danger" onclick="removeFriend('${escHtml(f.name).replace(/'/g,"\\'")}')">Remove</button>
-    </div>`).join('');
-}
-
-let curShareTab='export';
-function switchShareTab(tab) {
-  curShareTab=tab;
-  document.getElementById('sp-export').style.display  = tab==='export'  ? '':'none';
-  document.getElementById('sp-import').style.display  = tab==='import'  ? '':'none';
-  document.getElementById('sp-manage').style.display  = tab==='manage'  ? '':'none';
-  document.getElementById('stab-export').classList.toggle('active', tab==='export');
-  document.getElementById('stab-import').classList.toggle('active', tab==='import');
-  document.getElementById('stab-manage').classList.toggle('active', tab==='manage');
-  if (tab==='manage') renderFriendsList();
+function subscribeLeaderboard() {
+  if (lbChannel) db.removeChannel(lbChannel);
+  lbChannel = db.channel('lb-realtime')
+    .on('postgres_changes', { event:'*', schema:'public', table:'leaderboard' }, ()=>{
+      fetchLeaderboard();
+    })
+    .subscribe(status => {
+      if (status === 'SUBSCRIBED') setSyncStatus('live', 'Live');
+      if (status === 'CLOSED' || status === 'CHANNEL_ERROR') setSyncStatus('offline', 'Offline');
+    });
 }
 
 // ══════════════════════════════════════════
@@ -1104,7 +1097,7 @@ function toast(msg, type='info') {
 function switchTab(tab) {
   document.querySelectorAll('.tab-btn').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));
   document.querySelectorAll('.tab-content').forEach(c=>c.classList.toggle('active',c.id===`tab-${tab}`));
-  if (tab==='leaderboard') { renderLeaderboard(); refreshMyCode(); }
+  if (tab==='leaderboard') fetchLeaderboard();
 }
 
 // ══════════════════════════════════════════
@@ -1162,14 +1155,19 @@ document.getElementById('export-csv-btn').addEventListener('click',()=>{
 document.getElementById('player-name-inp').addEventListener('input', function() {
   S.playerName = this.value || 'Adventurer';
   saveState();
-  renderLeaderboard();
-  refreshMyCode();
+});
+
+document.getElementById('player-name-inp').addEventListener('change', function() {
+  if (S.playerName && S.playerName !== 'Adventurer') syncToSupabase();
 });
 
 loadState();
 loadSettingsUI();
 document.getElementById('player-name-inp').value = S.playerName;
 updateAll();
+fetchLeaderboard();
+subscribeLeaderboard();
+syncToSupabase();
 </script>
 </body>
 </html>
